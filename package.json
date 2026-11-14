@@ -1,0 +1,17 @@
+{
+  "name": "jobmatch",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "next dev", "build": "next build", "typecheck": "tsc --noEmit", "cap:sync": "cap sync android", "cap:open": "cap open android" },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@supabase/supabase-js": "^2.119.0",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.468.0",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": { "@capacitor/cli": "^7.4.3", "@tailwindcss/postcss": "^4.3.3", "@types/node": "^20", "@types/react": "^19", "@types/react-dom": "^19", "tailwindcss": "^4", "typescript": "^5" }
+}
