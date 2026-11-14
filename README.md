@@ -5,10 +5,11 @@ Aplicación web instalable para conectar trabajadores y negocios locales mediant
 ## 1. Preparar Supabase
 
 1. Crea o elige un proyecto de Supabase.
-2. Abre **SQL Editor**, pega todo `supabase/schema.sql` y ejecútalo. El script crea solo objetos propios con prefijo `jobmatch_` y el bucket `jobmatch-media`; no modifica tablas de otras aplicaciones. Las tablas quedan protegidas con RLS.
-3. En **Authentication → Providers**, activa Google y configura las credenciales OAuth de Google.
-4. En **Authentication → URL Configuration**, añade la URL local `http://localhost:3000` y la URL pública que usarás, por ejemplo `https://jobmatch.nebuladigitalstudio.es`, a las URLs permitidas. Registra también esos orígenes/redirects en Google Cloud.
-5. Copia `.env.example` como `.env.local` y añade la URL del proyecto y la clave pública/anon de Supabase. No uses una `service_role` en el navegador.
+2. Si partes de una instalación anterior de JobMatch, ejecuta `supabase/upgrade_v2.sql` y después `supabase/upgrade_profiles.sql` para añadir campos y vistas sin borrar datos; para una instalación nueva ejecuta `supabase/schema.sql`. Los scripts solo crean o modifican objetos con prefijo `jobmatch_` y usan el bucket reservado `jobmatch-media`.
+3. Opcionalmente ejecuta `supabase/seed_demo.sql` para añadir ocho fichas y ocho ofertas de ejemplo del área Torrevieja/Alicante. Están marcadas como demostración, no tienen usuarios de Auth asociados y no pueden crear matches reales.
+4. En **Authentication → Providers**, activa Google. En Google Cloud, configura el callback de Supabase como redirect URI OAuth.
+5. En **Authentication → URL Configuration**, añade `http://localhost:3000`, `https://jobmatch.nebuladigitalstudio.es` y `es.nebuladigitalstudio.jobmatch://auth/callback` a las URLs de redirección permitidas.
+6. Copia `.env.example` como `.env.local` y añade la URL del proyecto y la clave pública/anon de Supabase. No uses una `service_role` en el navegador.
 
 ## 2. Ejecutar en local
 
@@ -41,11 +42,15 @@ npm run cap:sync
 npm run cap:open
 ```
 
-Se abrirá Android Studio con `appId` `es.nebuladigitalstudio.jobmatch`. Para cambios posteriores de la web, vuelve a ejecutar `npm run build` y `npm run cap:sync` antes de compilar el APK. Prueba Google OAuth en un dispositivo Android y configura los enlaces/deep links nativos si quieres completar el retorno a la app instalada; la web ya permite autenticación en navegador.
+Se abrirá Android Studio con `appId` `es.nebuladigitalstudio.jobmatch`. Para cambios posteriores de la web, vuelve a ejecutar `npm run build` y `npm run cap:sync` antes de compilar el APK. La autenticación abre Google en el navegador del sistema y vuelve mediante `es.nebuladigitalstudio.jobmatch://auth/callback`; al generar la plataforma, añade un intent filter `VIEW` con `DEFAULT` y `BROWSABLE` para el esquema `es.nebuladigitalstudio.jobmatch`, host `auth` y ruta `/callback` en `android/app/src/main/AndroidManifest.xml`. Después registra el mismo redirect URI en Supabase Auth. En web se vuelve al origen actual.
+
+La grabación de voz requiere permiso de micrófono. La ubicación se pide de forma explícita al pulsar **Detectar mi ubicación actual**; si se prefiere, se puede elegir una ciudad y código postal. Las coordenadas se guardan sin mostrarse en el formulario.
 
 ## Alcance de la primera versión
 
 - Modo trabajador y empresa con cambio de rol, ficha editable y geolocalización voluntaria.
+- Perfil Base separado para datos reutilizables de trabajador y empresa; al crear fichas u ofertas se proponen esos valores.
+- Ficha ampliada del contacto accesible desde Conexiones y la cabecera del chat. Los datos completos se muestran solo cuando existe un match; el teléfono comercial aparece únicamente si el negocio activa la opción.
 - Mazo ordenado por distancia, filtrado por radio y sector.
 - Match recíproco creado por trigger SQL, con bandeja de conexiones y mensajes en tiempo real.
 - Plantillas de contacto rápido para empresas.

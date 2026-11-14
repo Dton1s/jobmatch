@@ -16,36 +16,63 @@ create table public.jobmatch_profiles (
   lat double precision,
   lng double precision,
   avatar_path text,
+  avatar_url text,
+  full_name text not null default '',
+  birth_year smallint,
+  experience_years numeric(4,1) not null default 0,
+  has_driving_license boolean not null default false,
+  has_own_vehicle boolean not null default false,
+  languages text[] not null default '{}',
+  default_bio text not null default '',
+  default_audio_url text,
+  company_name text not null default '',
+  company_logo_url text,
+  company_sector text not null default '',
+  company_address text not null default '',
+  company_description text not null default '',
   onboarding_complete boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint jobmatch_profiles_lat_range check (lat is null or lat between -90 and 90),
-  constraint jobmatch_profiles_lng_range check (lng is null or lng between -180 and 180)
+  constraint jobmatch_profiles_lng_range check (lng is null or lng between -180 and 180),
+  constraint jobmatch_profiles_birth_year_valid check (birth_year is null or birth_year between 1900 and 2100),
+  constraint jobmatch_profiles_experience_nonnegative check (experience_years >= 0)
+);
+
+create table public.jobmatch_company_contacts (
+  company_id uuid primary key references public.jobmatch_profiles(id) on delete cascade,
+  phone text not null default '',
+  visible_after_match boolean not null default false,
+  updated_at timestamptz not null default now()
 );
 
 create table public.jobmatch_worker_cards (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null unique references public.jobmatch_profiles(id) on delete cascade,
+  user_id uuid unique references public.jobmatch_profiles(id) on delete cascade,
   full_name text not null,
+  age smallint check (age is null or age between 16 and 100),
   photo_path text,
   desired_position text not null,
   sector text not null,
   experience_years numeric(4,1) not null default 0 check (experience_years >= 0),
   availability public.jobmatch_availability not null,
+  availability_note text not null default '',
   skills text[] not null default '{}',
+  bio text not null default '',
   city text not null,
   lat double precision not null check (lat between -90 and 90),
   lng double precision not null check (lng between -180 and 180),
   intro_audio_path text,
   is_active boolean not null default true,
   is_featured boolean not null default false,
+  is_demo boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create table public.jobmatch_job_offers (
   id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.jobmatch_profiles(id) on delete cascade,
+  company_id uuid references public.jobmatch_profiles(id) on delete cascade,
   business_name text not null,
   business_image_path text,
   position text not null,
@@ -53,13 +80,20 @@ create table public.jobmatch_job_offers (
   salary_text text not null check (length(trim(salary_text)) > 0),
   salary_min numeric(10,2),
   salary_max numeric(10,2),
+  salary_amount numeric(10,2) check (salary_amount is null or salary_amount >= 0),
+  salary_frequency text not null default 'mensual' check (salary_frequency in ('mensual','hora','jornada')),
+  salary_kind text not null default 'bruto' check (salary_kind in ('neto','bruto')),
   salary_period text not null default 'mensual',
   shift_type text not null,
+  schedule text not null default '',
+  benefits text[] not null default '{}',
   description text not null check (length(trim(description)) between 1 and 1200),
   city text not null,
+  address_approx text not null default '',
   lat double precision not null check (lat between -90 and 90),
   lng double precision not null check (lng between -180 and 180),
   is_active boolean not null default true,
+  is_demo boolean not null default false,
   expires_at timestamptz not null default (now() + interval '14 days'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -86,6 +120,8 @@ create table public.jobmatch_matches (
   company_id uuid not null references public.jobmatch_profiles(id) on delete cascade,
   worker_card_id uuid not null references public.jobmatch_worker_cards(id) on delete cascade,
   job_offer_id uuid not null references public.jobmatch_job_offers(id) on delete cascade,
+  last_read_at_worker timestamptz,
+  last_read_at_company timestamptz,
   created_at timestamptz not null default now(),
   constraint jobmatch_matches_one_pair unique (worker_card_id, job_offer_id),
   constraint jobmatch_matches_distinct_users check (worker_id <> company_id)
@@ -96,7 +132,19 @@ create table public.jobmatch_messages (
   match_id uuid not null references public.jobmatch_matches(id) on delete cascade,
   sender_id uuid not null references public.jobmatch_profiles(id) on delete cascade,
   body text not null check (length(trim(body)) between 1 and 2000),
+  message_type text not null default 'text' check (message_type in ('text','interview','interview_reply')),
+  metadata jsonb not null default '{}'::jsonb,
+  read_at timestamptz,
   created_at timestamptz not null default now()
+);
+
+create table public.jobmatch_card_views (
+  id uuid primary key default gen_random_uuid(),
+  viewer_id uuid not null references public.jobmatch_profiles(id) on delete cascade,
+  worker_card_id uuid references public.jobmatch_worker_cards(id) on delete cascade,
+  job_offer_id uuid references public.jobmatch_job_offers(id) on delete cascade,
+  viewed_at timestamptz not null default now(),
+  constraint jobmatch_card_views_one_target check ((worker_card_id is null) <> (job_offer_id is null))
 );
 
 create index jobmatch_worker_cards_search_idx on public.jobmatch_worker_cards (is_active, sector, city);
@@ -105,6 +153,13 @@ create index jobmatch_swipes_target_idx on public.jobmatch_swipes (worker_card_i
 create index jobmatch_matches_worker_idx on public.jobmatch_matches (worker_id, created_at desc);
 create index jobmatch_matches_company_idx on public.jobmatch_matches (company_id, created_at desc);
 create index jobmatch_messages_match_created_idx on public.jobmatch_messages (match_id, created_at);
+create index jobmatch_worker_cards_demo_idx on public.jobmatch_worker_cards (is_demo, is_active, sector);
+create index jobmatch_job_offers_demo_idx on public.jobmatch_job_offers (is_demo, is_active, expires_at, sector);
+create index jobmatch_messages_unread_idx on public.jobmatch_messages (match_id, read_at, created_at desc);
+create index jobmatch_card_views_worker_idx on public.jobmatch_card_views (worker_card_id, viewed_at desc);
+create index jobmatch_card_views_offer_idx on public.jobmatch_card_views (job_offer_id, viewed_at desc);
+create unique index jobmatch_card_views_once_worker_idx on public.jobmatch_card_views (viewer_id, worker_card_id) where worker_card_id is not null;
+create unique index jobmatch_card_views_once_offer_idx on public.jobmatch_card_views (viewer_id, job_offer_id) where job_offer_id is not null;
 
 create or replace function public.jobmatch_distance_km(lat1 double precision, lng1 double precision, lat2 double precision, lng2 double precision)
 returns double precision
@@ -141,9 +196,12 @@ declare
 begin
   if new.direction not in ('right', 'super') then return new; end if;
 
+  select jo.company_id into v_company_id from public.jobmatch_job_offers jo where jo.id = new.job_offer_id;
+  if v_company_id is null then return new; end if;
+
   if new.actor_role = 'company' then
-    select wc.user_id into v_worker_id from public.jobmatch_worker_cards wc where wc.id = new.worker_card_id;
-    v_company_id := new.actor_id;
+    if new.actor_id <> v_company_id then return new; end if;
+    select wc.user_id into v_worker_id from public.jobmatch_worker_cards wc where wc.id = new.worker_card_id and not wc.is_demo;
     select exists (
       select 1 from public.jobmatch_swipes s
       where s.actor_role = 'worker' and s.actor_id = v_worker_id
@@ -151,8 +209,7 @@ begin
         and s.direction = 'right'
     ) into v_mutual;
   else
-    v_worker_id := new.actor_id;
-    select jo.company_id into v_company_id from public.jobmatch_job_offers jo where jo.id = new.job_offer_id;
+    select wc.user_id into v_worker_id from public.jobmatch_worker_cards wc where wc.id = new.worker_card_id and wc.user_id = new.actor_id and not wc.is_demo;
     select exists (
       select 1 from public.jobmatch_swipes s
       where s.actor_role = 'company' and s.actor_id = v_company_id
@@ -170,15 +227,37 @@ begin
 end;
 $$;
 
+create or replace function public.jobmatch_mark_match_read(p_match_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then raise exception 'authentication required'; end if;
+  if exists (select 1 from public.jobmatch_matches where id = p_match_id and worker_id = v_user_id) then
+    update public.jobmatch_matches set last_read_at_worker = now() where id = p_match_id;
+  elsif exists (select 1 from public.jobmatch_matches where id = p_match_id and company_id = v_user_id) then
+    update public.jobmatch_matches set last_read_at_company = now() where id = p_match_id;
+  else
+    raise exception 'match not found';
+  end if;
+  update public.jobmatch_messages set read_at = now()
+  where match_id = p_match_id and sender_id <> v_user_id and read_at is null;
+end;
+$$;
+revoke all on function public.jobmatch_mark_match_read(uuid) from public;
+grant execute on function public.jobmatch_mark_match_read(uuid) to authenticated;
+
 create trigger jobmatch_swipes_mutual_match after insert on public.jobmatch_swipes
 for each row execute function public.jobmatch_create_match_on_mutual_interest();
 
 alter table public.jobmatch_profiles enable row level security;
+alter table public.jobmatch_company_contacts enable row level security;
 alter table public.jobmatch_worker_cards enable row level security;
 alter table public.jobmatch_job_offers enable row level security;
 alter table public.jobmatch_swipes enable row level security;
 alter table public.jobmatch_matches enable row level security;
 alter table public.jobmatch_messages enable row level security;
+alter table public.jobmatch_card_views enable row level security;
 
 create policy jobmatch_profiles_select_authenticated on public.jobmatch_profiles
 for select to authenticated using (
@@ -193,8 +272,24 @@ for insert to authenticated with check (id = (select auth.uid()));
 create policy jobmatch_profiles_update_self on public.jobmatch_profiles
 for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
+create policy jobmatch_company_contacts_select_authorized on public.jobmatch_company_contacts
+for select to authenticated using (
+  company_id = (select auth.uid()) or (
+    visible_after_match and exists (
+      select 1 from public.jobmatch_matches m
+      where m.company_id = jobmatch_company_contacts.company_id and m.worker_id = (select auth.uid())
+    )
+  )
+);
+create policy jobmatch_company_contacts_insert_own on public.jobmatch_company_contacts
+for insert to authenticated with check (company_id = (select auth.uid()));
+create policy jobmatch_company_contacts_update_own on public.jobmatch_company_contacts
+for update to authenticated using (company_id = (select auth.uid())) with check (company_id = (select auth.uid()));
+create policy jobmatch_company_contacts_delete_own on public.jobmatch_company_contacts
+for delete to authenticated using (company_id = (select auth.uid()));
+
 create policy jobmatch_worker_cards_select_authenticated on public.jobmatch_worker_cards
-for select to authenticated using (is_active or user_id = (select auth.uid()));
+for select to authenticated using (is_demo or is_active or user_id = (select auth.uid()));
 create policy jobmatch_worker_cards_insert_self on public.jobmatch_worker_cards
 for insert to authenticated with check (user_id = (select auth.uid()));
 create policy jobmatch_worker_cards_update_self on public.jobmatch_worker_cards
@@ -203,7 +298,7 @@ create policy jobmatch_worker_cards_delete_self on public.jobmatch_worker_cards
 for delete to authenticated using (user_id = (select auth.uid()));
 
 create policy jobmatch_job_offers_select_active on public.jobmatch_job_offers
-for select to authenticated using ((is_active and expires_at > now()) or company_id = (select auth.uid()));
+for select to authenticated using ((is_active and expires_at > now()) or is_demo or company_id = (select auth.uid()));
 create policy jobmatch_job_offers_insert_company on public.jobmatch_job_offers
 for insert to authenticated with check (company_id = (select auth.uid()));
 create policy jobmatch_job_offers_update_company on public.jobmatch_job_offers
@@ -224,6 +319,8 @@ for insert to authenticated with check (
     (actor_role = 'company' and exists (select 1 from public.jobmatch_job_offers jo where jo.id = job_offer_id and jo.company_id = (select auth.uid())))
   )
 );
+create policy jobmatch_swipes_delete_own on public.jobmatch_swipes
+for delete to authenticated using (actor_id = (select auth.uid()));
 
 create policy jobmatch_matches_select_participant on public.jobmatch_matches
 for select to authenticated using (worker_id = (select auth.uid()) or company_id = (select auth.uid()));
@@ -238,6 +335,15 @@ for insert to authenticated with check (
     select 1 from public.jobmatch_matches m where m.id = match_id and (m.worker_id = (select auth.uid()) or m.company_id = (select auth.uid()))
   )
 );
+
+create policy jobmatch_card_views_select_owner on public.jobmatch_card_views
+for select to authenticated using (
+  viewer_id = (select auth.uid()) or
+  exists (select 1 from public.jobmatch_worker_cards wc where wc.id = worker_card_id and wc.user_id = (select auth.uid())) or
+  exists (select 1 from public.jobmatch_job_offers jo where jo.id = job_offer_id and jo.company_id = (select auth.uid()))
+);
+create policy jobmatch_card_views_insert_self on public.jobmatch_card_views
+for insert to authenticated with check (viewer_id = (select auth.uid()));
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('jobmatch-media', 'jobmatch-media', true, 15728640, array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg'])
