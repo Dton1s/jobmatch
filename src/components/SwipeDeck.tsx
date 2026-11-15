@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
-import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, MapPin, Pause, Play, RotateCcw, X, Heart } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, MapPin, MessageCircle, Pause, Play, RotateCcw, X, Heart } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase";
@@ -10,15 +10,16 @@ import { CloseButton } from "@/components/CloseButton";
 export type DeckCard = (WorkerCard & { distanceKm?: number; interested?: boolean }) | (JobOffer & { distanceKm?: number });
 
 type DeckProps = {
-  role: Role; offer: JobOffer | null; distance: number; cards: DeckCard[]; loading: boolean; undoAvailable: boolean;
+  role: Role; offer: JobOffer | null; distance: number; cards: DeckCard[]; loading: boolean; undoAvailable: boolean; isPro: boolean;
   onSwipe: (card: DeckCard, direction: SwipeDirection) => void;
   onCreateOffer: () => void; onUndo: () => void; onShowFilters: () => void; onResetDemo: () => void;
   pausedOffer: JobOffer | null; onActivateOffer: (offer: JobOffer) => void;
   onRecover: () => void;
   onModalOpen: () => void;
+  onContactDirect: (card: DeckCard) => void;
 };
 
-export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer, onRecover, onModalOpen }: DeckProps) {
+export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, isPro, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer, onRecover, onModalOpen, onContactDirect }: DeckProps) {
   const [recoveryKey, setRecoveryKey] = useState(0);
   const [exitDirection, setExitDirection] = useState<SwipeDirection>("right");
   const lastRecoveryAt = useRef(0);
@@ -53,7 +54,7 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
       {needsActiveOffer && <div className="empty-card offer-required-state"><BriefcaseBusiness size={34}/><span className="eyebrow">PUBLICA UNA OPORTUNIDAD</span><h2>Activa o crea una oferta para empezar a deslizar candidatos</h2>{pausedOffer && <button className="primary-button" onClick={() => onActivateOffer(pausedOffer)}>Activar mi oferta</button>}<button className={pausedOffer ? "quiet-button" : "primary-button"} onClick={onCreateOffer}>Crear nueva oferta</button></div>}
       {!loading && !needsActiveOffer && !currentCard && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onResetDemo}><RotateCcw size={14}/> Volver a ver perfiles de ejemplo</button>{undoAvailable && <button className="quiet-button" onClick={onUndo}><RotateCcw size={14}/> Deshacer último swipe</button>}</div>}
       <AnimatePresence initial={false} mode="sync" custom={exitDirection}>
-        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}-${recoveryKey}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} onSwipe={handleSwipe} onModalOpen={onModalOpen}/></motion.div>) }
+        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}-${recoveryKey}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} isPro={isPro} onContactDirect={onContactDirect} onSwipe={handleSwipe} onModalOpen={onModalOpen}/></motion.div>) }
       </AnimatePresence>
     </div>
     {hasActiveCard && <>
@@ -63,7 +64,7 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
   </section>;
 }
 
-function SwipeDeckCard({ role, card, active, onSwipe, onModalOpen }: { role: Role; card: DeckCard; active: boolean; onSwipe: (card: DeckCard, direction: SwipeDirection) => void; onModalOpen: () => void }) {
+function SwipeDeckCard({ role, card, active, isPro, onContactDirect, onSwipe, onModalOpen }: { role: Role; card: DeckCard; active: boolean; isPro: boolean; onContactDirect: (card: DeckCard) => void; onSwipe: (card: DeckCard, direction: SwipeDirection) => void; onModalOpen: () => void }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const x = useMotionValue(0);
@@ -100,7 +101,7 @@ function SwipeDeckCard({ role, card, active, onSwipe, onModalOpen }: { role: Rol
   return <>
     <motion.article className={`swipe-card ${active ? "swipe-card-current" : "swipe-card-next"}`} style={{ x, rotate, scale: active ? 1 : .96, opacity: 1, backgroundColor: "#ffffff", zIndex: active ? 10 : 0, touchAction: "pan-y" }} drag={active ? "x" : false} dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} dragMomentum={false} onDragEnd={(_, info) => { if (active) finishDrag(info.offset.x); }} initial={active ? { opacity: 0, scale: .95, y: 16 } : false} animate={{ opacity: 1, scale: active ? 1 : .96, y: 0 }} transition={{ type: "tween", duration: .24, ease: "easeOut" }}>
       <div className={`card-cover ${image ? "has-photo" : "no-photo"} sector-${sectorSlug(sector)}`} style={image ? { backgroundImage: `linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.5) 45%, transparent 100%),url(${image})` } : undefined}>
-        <div className="cover-topline">{card.is_demo && <span className="demo-badge">Perfil de ejemplo</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
+        <div className="cover-topline">{card.is_demo && <span className="demo-badge">Perfil de ejemplo</span>}{job?.is_boosted&&job.boost_expires_at&&new Date(job.boost_expires_at).getTime()>Date.now()&&<span className="boost-badge">✦ Destacada</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
         <div className="sector-symbol" aria-hidden="true">{image ? sectorIcon(sector) : initials(title)}</div>
         <div className="cover-copy"><span className="cover-sector">{job ? job.sector : worker?.city}</span><h2>{title}</h2><p>{job ? job.position : worker?.age ? `${worker.age} años · ${worker.city}` : worker?.city}</p></div>
         {worker?.interested && <div className="interest-pill">Le interesa tu oferta</div>}
@@ -114,7 +115,7 @@ function SwipeDeckCard({ role, card, active, onSwipe, onModalOpen }: { role: Rol
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{active && detailsOpen && <motion.div className="sheet-backdrop deck-details-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDetailsOpen(false)}><motion.section className="details-sheet deck-details-modal" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 280 }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalles completos">
       <header className="deck-details-header"><div className="deck-details-heading"><h2>{title}</h2><p>{detailPosition} · {detailLocation}</p><div><span><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span>{detailBadge&&<span>{detailBadge}</span>}</div></div><CloseButton className="sheet-close" onClick={() => setDetailsOpen(false)} label="Cerrar detalles"/></header>
       <div className="deck-details-body">{job ? <OfferDetails offer={job}/> : worker && <CandidateDetails worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={toggleAudio}/>}</div>
-      <footer className="deck-details-actions"><button className="secondary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "left"); }}><X size={17}/> Rechazar</button><button className="primary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "right"); }}><Heart size={17} fill="currentColor"/> {isWorker ? "Aplicar" : "Me interesa"}</button></footer>
+      <footer className="deck-details-actions">{role==="company"&&worker&&!worker.is_demo&&isPro&&<button className="secondary-button pro-contact-button" onClick={()=>{setDetailsOpen(false);onContactDirect(card);}}><MessageCircle size={16}/> Escribir con Pro</button>}<button className="secondary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "left"); }}><X size={17}/> Rechazar</button><button className="primary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "right"); }}><Heart size={17} fill="currentColor"/> {isWorker ? "Aplicar" : "Me interesa"}</button></footer>
     </motion.section></motion.div>}</AnimatePresence>, document.body)}
   </>;
 }

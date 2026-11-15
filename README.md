@@ -23,7 +23,7 @@ JobMatch conecta a trabajadores y empresas de una misma zona mediante fichas pro
 - Dominio operativo conocido: `https://jobmatch.nebuladigitalstudio.es`.
 - Dominio objetivo: `https://jobmatch.es` (la app no debe depender de él hasta que esté registrado y su DNS resuelva).
 - Supabase actual: instancia compartida con otros proyectos de Nébula. Las tablas, tipos, funciones, triggers, índices y políticas propias de la app usan el prefijo `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`.
-- Suscripciones, pagos y funciones de pago como `super like` aún no están integradas.
+- Monetización preparada con Boost de oferta (7,99 € por 7 días) y JobMatch Pro (19,99 €/mes); Stripe requiere secretos de producción y aplicar `supabase/upgrade_monetization.sql`.
 
 ## Cómo se usa
 
@@ -96,6 +96,7 @@ Los scripts SQL pertenecen a esta app:
 - `supabase/fix_profiles_v3.sql`, `supabase/fix_match_profile_rls.sql`: columnas y permisos de lectura del perfil ampliado.
 - `supabase/fix_storage_cv.sql`, `supabase/fix_storage_all.sql`: políticas y configuración del bucket; lee la nota de seguridad antes de aplicar o reutilizar estas políticas.
 - `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
+- `supabase/upgrade_monetization.sql`: columnas de Boost y Pro, historial idempotente de eventos Stripe, protección de campos de pago y RPC para contacto directo Pro. Aplícalo una vez en el SQL Editor del proyecto antes de habilitar cobros.
 - `supabase/seed_demo.sql`: crea ocho ofertas y ocho candidatos ficticios de Torrevieja/Alicante, identificados como `is_demo`.
 
 Para una base nueva, ejecuta `schema.sql`, después `legal_and_delete_account.sql` y, si quieres, `seed_demo.sql`. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
@@ -117,6 +118,14 @@ Las listas de redirección de Supabase y Google son configuración externa: el b
 Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura pública y restringe las escrituras a la carpeta del usuario autenticado. Los currículums se guardan en el bucket privado `jobmatch-cvs`, con límite de 5 MB y solo PDF. `supabase/private_cvs_storage.sql` crea el bucket y aplica políticas estrictas: el titular puede leer su CV y otros usuarios solo pueden leerlo si existe un match confirmado. La app genera una URL firmada con vigencia de 5 minutos al abrir el documento. No se guardan nuevas URLs públicas.
 
 **Estado de seguridad:** el flujo nuevo está protegido. Antes de desplegar la app, ejecuta `supabase/private_cvs_storage.sql` en el SQL Editor del proyecto Supabase. Los archivos PDF históricos que aún estén en el bucket público `jobmatch-media` siguen siendo accesibles públicamente hasta migrarlos a `jobmatch-cvs` y borrar los originales. La app conserva compatibilidad temporal al firmar las referencias antiguas, pero esa compatibilidad no vuelve privados los objetos antiguos.
+
+### Monetización de empresa
+
+- **Boost:** pago único de 7,99 €; Stripe activa el destaque durante 7 días. Las ofertas Boost vigentes aparecen primero a trabajadores que buscan ofertas.
+- **JobMatch Pro:** 19,99 €/mes; Stripe mantiene `is_pro` y `pro_expires_at` según el estado y periodo real de la suscripción. Las empresas Pro pueden iniciar conversaciones directas con candidatos reales desde el detalle de la ficha.
+- Las funciones Vercel están en `api/checkout/boost.ts`, `api/checkout/subscription.ts` y `api/webhooks/stripe.ts`. El webhook valida la firma Stripe, y la clave `service_role` solo se usa en backend.
+- En Vercel configura `NEXT_PUBLIC_APP_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` (además de las dos variables públicas de Supabase). Configura en Stripe el endpoint `https://jobmatch.nebuladigitalstudio.es/api/webhooks/stripe` con los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` e `invoice.payment_failed`.
+- Antes de usar pagos reales, aplica `supabase/upgrade_monetization.sql`, configura productos/precios y webhook en Stripe, agrega los secretos de producción en Vercel y completa un pago de prueba end-to-end. Los botones de compra Stripe se ocultan en Android mientras no se integre Google Play Billing.
 
 ## Variables de entorno
 
