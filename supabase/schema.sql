@@ -11,6 +11,7 @@ create type public.jobmatch_swipe_direction as enum ('left', 'right', 'super');
 create table public.jobmatch_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   role public.jobmatch_role,
+  enabled_roles text[] not null default '{}',
   display_name text not null default '',
   city text not null default '',
   lat double precision,
@@ -186,6 +187,14 @@ begin
 end;
 $$;
 
+create or replace function public.jobmatch_role_is_enabled(p_user_id uuid, p_role text)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select coalesce(p_role = any(p.enabled_roles), false)
+  from public.jobmatch_profiles p where p.id = p_user_id;
+$$;
+revoke all on function public.jobmatch_role_is_enabled(uuid, text) from public;
+grant execute on function public.jobmatch_role_is_enabled(uuid, text) to authenticated;
+
 create trigger jobmatch_profiles_updated_at before update on public.jobmatch_profiles
 for each row execute function public.jobmatch_set_updated_at();
 create trigger jobmatch_worker_cards_updated_at before update on public.jobmatch_worker_cards
@@ -295,7 +304,15 @@ create policy jobmatch_company_contacts_delete_own on public.jobmatch_company_co
 for delete to authenticated using (company_id = (select auth.uid()));
 
 create policy jobmatch_worker_cards_select_authenticated on public.jobmatch_worker_cards
-for select to authenticated using (is_demo or is_active or user_id = (select auth.uid()));
+for select to authenticated using (
+  is_demo or user_id = (select auth.uid()) or (
+    is_active and public.jobmatch_role_is_enabled(user_id, 'worker')
+  ) or exists (
+    select 1 from public.jobmatch_matches m
+    where m.worker_card_id = jobmatch_worker_cards.id
+      and (m.worker_id = (select auth.uid()) or m.company_id = (select auth.uid()))
+  )
+);
 create policy jobmatch_worker_cards_insert_self on public.jobmatch_worker_cards
 for insert to authenticated with check (user_id = (select auth.uid()));
 create policy jobmatch_worker_cards_update_self on public.jobmatch_worker_cards
@@ -304,7 +321,15 @@ create policy jobmatch_worker_cards_delete_self on public.jobmatch_worker_cards
 for delete to authenticated using (user_id = (select auth.uid()));
 
 create policy jobmatch_job_offers_select_active on public.jobmatch_job_offers
-for select to authenticated using ((is_active and expires_at > now()) or is_demo or company_id = (select auth.uid()));
+for select to authenticated using (
+  is_demo or company_id = (select auth.uid()) or (
+    is_active and expires_at > now() and public.jobmatch_role_is_enabled(company_id, 'company')
+  ) or exists (
+    select 1 from public.jobmatch_matches m
+    where m.job_offer_id = jobmatch_job_offers.id
+      and (m.worker_id = (select auth.uid()) or m.company_id = (select auth.uid()))
+  )
+);
 create policy jobmatch_job_offers_insert_company on public.jobmatch_job_offers
 for insert to authenticated with check (company_id = (select auth.uid()));
 create policy jobmatch_job_offers_update_company on public.jobmatch_job_offers

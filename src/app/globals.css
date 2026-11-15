@@ -104,3 +104,12 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .cv-view-link{display:inline-flex;align-items:center;gap:5px;padding:0;border:0;background:transparent;color:#647f27;font:inherit;text-decoration:underline;cursor:pointer}
 .cv-view-link:disabled,.cv-match-link:disabled{cursor:wait;opacity:.65}
 .cv-match-link{width:100%;text-align:left;cursor:pointer}
+.role-unlock-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 18px;padding:15px 14px;border:1px solid #e5e8df;border-radius:16px;background:#fff}
+.role-unlock-card>div{min-width:0;flex:1}
+.role-unlock-card b{display:block;color:#272a23;font-size:12px;font-weight:800;line-height:1.4}
+.role-unlock-card p{margin:4px 0 0;color:#73786e;font-size:10px;line-height:1.5}
+.role-unlock-toggle{display:flex;flex:none;width:46px;height:27px;align-items:center;padding:3px;border:0;border-radius:999px;background:#d6d9d0;transition:background .18s}
+.role-unlock-toggle.on{justify-content:flex-end;background:#91aa35}
+.role-unlock-toggle i{width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0002}
+.role-unlock-toggle .loader{width:17px;height:17px;margin:auto;border-width:2px}
+.role-unlock-toggle:disabled{opacity:.7}

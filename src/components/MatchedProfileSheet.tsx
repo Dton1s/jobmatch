@@ -102,7 +102,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
 
 function profileFromOffer(offer: JobOffer, id: string): Profile {
   return {
-    id, role: "company", display_name: offer.business_name, city: offer.city, lat: offer.lat, lng: offer.lng,
+    id, role: "company", enabled_roles: ["company"], display_name: offer.business_name, city: offer.city, lat: offer.lat, lng: offer.lng,
     avatar_path: offer.business_image_path, onboarding_complete: true, avatar_url: offer.business_image_path,
     full_name: "", birth_year: null, experience_years: 0, has_driving_license: false, has_own_vehicle: false,
     languages: [], default_bio: "", default_audio_url: null, cv_url: null, cv_filename: null, company_name: offer.business_name,
@@ -113,7 +113,7 @@ function profileFromOffer(offer: JobOffer, id: string): Profile {
 
 function profileFromWorker(worker: WorkerCard, id: string): Profile {
   return {
-    id, role: "worker", display_name: worker.full_name, city: worker.city, lat: worker.lat, lng: worker.lng,
+    id, role: "worker", enabled_roles: ["worker"], display_name: worker.full_name, city: worker.city, lat: worker.lat, lng: worker.lng,
     avatar_path: worker.photo_path, onboarding_complete: true, avatar_url: worker.photo_path,
     full_name: worker.full_name, birth_year: worker.age ? new Date().getFullYear() - worker.age : null,
     experience_years: worker.experience_years, has_driving_license: worker.skills.some((skill) => /carnet/i.test(skill)),

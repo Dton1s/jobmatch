@@ -11,7 +11,7 @@ export type Role = "worker" | "company";
 export type SwipeDirection = "left" | "right" | "super";
 
 export type Profile = {
-  id: string; role: Role | null; display_name: string; city: string; lat: number | null; lng: number | null; avatar_path: string | null; onboarding_complete: boolean;
+  id: string; role: Role | null; enabled_roles: Role[]; display_name: string; city: string; lat: number | null; lng: number | null; avatar_path: string | null; onboarding_complete: boolean;
   avatar_url: string | null; full_name: string; birth_year: number | null; experience_years: number;
   has_driving_license: boolean; has_own_vehicle: boolean; languages: string[]; default_bio: string; default_audio_url: string | null;
   cv_url: string | null; cv_filename: string | null;

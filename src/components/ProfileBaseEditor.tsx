@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type
 import { Camera, Check, LoaderCircle, Mic, Pause, Play, Save, Square, Trash2 } from "lucide-react";
 import { CvUploadField } from "@/components/CvUploadField";
 import { CloseButton } from "@/components/CloseButton";
-import { supabase, type Profile } from "@/lib/supabase";
+import { supabase, type Profile, type Role } from "@/lib/supabase";
 
 type WorkerForm = {
   fullName: string; birthYear: string; city: string; experienceYears: string; hasDrivingLicense: boolean;
@@ -29,7 +29,7 @@ function messageFromError(error: unknown) {
   return error instanceof Error ? error.message : "Error desconocido al guardar el perfil.";
 }
 
-export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Profile; onSaved: (updated: Partial<Profile>) => void; onClose: () => void }) {
+export function ProfileBaseEditor({ profile, enabledRoles, onSaved, onClose }: { profile: Profile; enabledRoles: Role[]; onSaved: (updated: Partial<Profile>) => void; onClose: () => void }) {
   const [tab, setTab] = useState<"worker" | "company">(profile.role === "company" ? "company" : "worker");
   const [workerForm, setWorkerForm] = useState<WorkerForm>({
     fullName: profile.full_name ?? "", birthYear: profile.birth_year?.toString() ?? "", city: profile.city ?? "",
@@ -50,6 +50,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
   const fileRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const isWorker = tab === "worker";
+  const hasDualMode = enabledRoles.includes("worker") && enabledRoles.includes("company");
   const photo = isWorker ? workerPreview || profile.avatar_url || "" : companyPreview || profile.company_logo_url || "";
 
   useEffect(() => {
@@ -142,7 +143,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
   return <div className="drawer-backdrop profile-base-backdrop" onClick={onClose}>
     <section ref={panelRef} className="profile-base-panel" role="dialog" aria-modal="true" aria-labelledby="profile-base-title" onClick={(event) => event.stopPropagation()}>
       <header className="drawer-heading"><div><span className="eyebrow">DATOS REUTILIZABLES</span><h2 id="profile-base-title">Perfil Base</h2></div><CloseButton className="icon-close" onClick={onClose} label="Cerrar Perfil Base"/></header>
-      <div className="profile-base-tabs" role="tablist" aria-label="Tipo de perfil"><button type="button" role="tab" aria-selected={isWorker} className={isWorker ? "selected" : ""} onClick={() => switchTab("worker")}>Datos de Trabajador</button><button type="button" role="tab" aria-selected={!isWorker} className={!isWorker ? "selected" : ""} onClick={() => switchTab("company")}>Datos de Empresa</button></div>
+      {hasDualMode && <div className="profile-base-tabs" role="tablist" aria-label="Tipo de perfil"><button type="button" role="tab" aria-selected={isWorker} className={isWorker ? "selected" : ""} onClick={() => switchTab("worker")}>Datos de Trabajador</button><button type="button" role="tab" aria-selected={!isWorker} className={!isWorker ? "selected" : ""} onClick={() => switchTab("company")}>Datos de Empresa</button></div>}
       <form className="editor-form profile-base-form" onSubmit={save} key={tab}>
         <div className="identity-row"><button type="button" className="avatar-picker" onClick={() => fileRef.current?.click()} aria-label={isWorker ? "Elegir avatar de trabajador" : "Elegir logo de empresa"}><span className="avatar-preview" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{photo ? null : isWorker ? "JM" : "＋"}</span><span className="camera-badge"><Camera size={15}/></span></button><input ref={fileRef} className="hidden-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage}/><div><b>{isWorker ? "Avatar predeterminado" : "Logo predeterminado"}</b><small>Se usará al crear una ficha u oferta nueva.</small></div></div>
         {isWorker ? <>

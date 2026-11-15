@@ -92,13 +92,15 @@ El esquema actual contiene, entre otros, `jobmatch_profiles`, `jobmatch_worker_c
 Los scripts SQL pertenecen a esta app:
 
 - `supabase/schema.sql`: esquema completo para una base nueva. **No lo ejecutes sobre una base compartida que ya tenga estas tablas**.
-- `supabase/upgrade_v2.sql`, `supabase/upgrade_profiles.sql`, `supabase/upgrade_cv_v4.sql`: ampliaciones incrementales de versiones anteriores.
+- `supabase/upgrade_v2.sql`, `supabase/upgrade_profiles.sql`, `supabase/upgrade_cv_v4.sql`, `supabase/upgrade_role_modes.sql`: ampliaciones incrementales de versiones anteriores. `upgrade_role_modes.sql` habilita el modo dual y restringe la lectura pública de fichas/ofertas al rol activo.
 - `supabase/fix_profiles_v3.sql`, `supabase/fix_match_profile_rls.sql`: columnas y permisos de lectura del perfil ampliado.
 - `supabase/fix_storage_cv.sql`, `supabase/fix_storage_all.sql`: políticas y configuración del bucket; lee la nota de seguridad antes de aplicar o reutilizar estas políticas.
 - `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
 - `supabase/seed_demo.sql`: crea ocho ofertas y ocho candidatos ficticios de Torrevieja/Alicante, identificados como `is_demo`.
 
 Para una base nueva, ejecuta `schema.sql`, después `legal_and_delete_account.sql` y, si quieres, `seed_demo.sql`. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
+
+Antes de desplegar el modo de rol único/dual en una base existente, ejecuta `supabase/upgrade_role_modes.sql` al final de las migraciones anteriores. Añade `enabled_roles`, conserva el rol principal existente y aplica RLS para que las fichas y ofertas solo sean visibles en descubrimiento mientras su modo está habilitado.
 
 ### Auth y Google OAuth
 
