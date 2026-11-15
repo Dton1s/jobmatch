@@ -11,10 +11,10 @@ export default {
       if (!/^[0-9a-f-]{36}$/i.test(offerId)) return json({ error: "Selecciona una oferta válida." }, 400);
 
       const { data: offer, error } = await authorized.admin.from("jobmatch_job_offers")
-        .select("id,company_id,business_name,position,is_active,is_demo,is_boosted,boost_expires_at")
+        .select("id,company_id,business_name,position,is_active,is_demo,is_boosted,boost_expires_at,expires_at")
         .eq("id", offerId).eq("company_id", authorized.profile.id).maybeSingle();
       if (error) throw error;
-      if (!offer || offer.is_demo || !offer.is_active) return json({ error: "Solo puedes destacar una oferta propia activa." }, 404);
+      if (!offer || offer.is_demo || !offer.is_active || new Date(offer.expires_at).getTime() <= Date.now()) return json({ error: "Solo puedes destacar una oferta propia activa y vigente." }, 404);
       if (offer.is_boosted && offer.boost_expires_at && new Date(offer.boost_expires_at).getTime() > Date.now()) {
         return json({ error: "Esta oferta ya está destacada." }, 409);
       }

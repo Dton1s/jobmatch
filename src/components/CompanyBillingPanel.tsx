@@ -36,7 +36,7 @@ export function CompanyBillingPanel({ profile, offers, onError }: { profile: Pro
       {!native && !activePro && <button className="billing-primary" disabled={Boolean(busy)} onClick={() => void checkout("/api/checkout/subscription", {}, "pro")}><Sparkles size={15}/>{busy === "pro" ? "Abriendo pago…" : "Activar JobMatch Pro"}</button>}
       {native && !activePro && <small className="billing-expiry">Las compras dentro de Android estarán disponibles al integrar Google Play Billing.</small>}
     </div>
-    {!native && offers.filter((offer) => offer.company_id === profile.id && offer.is_active && !offer.is_demo).map((offer) => {
+    {!native && offers.filter((offer) => offer.company_id === profile.id && offer.is_active && !offer.is_demo && new Date(offer.expires_at).getTime() > Date.now()).map((offer) => {
       const boosted = Boolean(offer.is_boosted && offer.boost_expires_at && new Date(offer.boost_expires_at).getTime() > Date.now());
       return <div className="billing-boost-row" key={offer.id}><span><b>{offer.position}</b><small>{boosted ? `Destacada hasta ${new Date(offer.boost_expires_at!).toLocaleDateString("es-ES")}` : "Más visibilidad durante 7 días"}</small></span><button disabled={Boolean(busy) || boosted} onClick={() => void checkout("/api/checkout/boost", { offer_id: offer.id }, offer.id)}>{busy === offer.id ? "Abriendo…" : boosted ? <><BadgeCheck size={13}/> Destacada</> : "Destacar · 7,99 €"}</button></div>;
     })}
