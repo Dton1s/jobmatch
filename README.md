@@ -146,7 +146,7 @@ npm run build
 npx cap add android
 ```
 
-Después configura el intent filter del callback en `android/app/src/main/AndroidManifest.xml` para el esquema `es.nebuladigitalstudio.jobmatch`, host `auth` y ruta `/callback`, con las categorías `DEFAULT` y `BROWSABLE`. Revisa también los permisos de micrófono y ubicación, el icono adaptativo y los iconos de lanzamiento; el único recurso de marca incluido ahora es `public/icon.svg`, no un paquete de recursos Android.
+Después configura el intent filter del callback en `android/app/src/main/AndroidManifest.xml` para el esquema `es.nebuladigitalstudio.jobmatch`, host `auth` y ruta `/callback`, con las categorías `DEFAULT` y `BROWSABLE`. Revisa también los permisos de micrófono y ubicación. La marca incluye ahora `public/branding/jobmatch-logo.png`, `public/branding/jobmatch-banner.png`, los iconos PWA (`public/favicon.ico`, PNG y `public/icon-192.png` / `public/icon-512.png`) y el máster de app `resources/icon.png`. El manifest web y los metadatos de Next ya apuntan a los nuevos iconos. Cuando añadas Android, genera los recursos nativos con `npx @capacitor/assets generate --android` (requiere instalar `@capacitor/assets` como dependencia de desarrollo) y comprueba el icono adaptativo en un dispositivo.
 
 Sincronización y apertura posteriores:
 
