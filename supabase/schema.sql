@@ -364,13 +364,13 @@ for select to public using (bucket_id = 'jobmatch-media');
 create policy jobmatch_media_upload_own_folder on storage.objects
 for insert to authenticated with check (
   bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text
-  and coalesce(metadata->>'mimetype','') <> 'application/pdf'
+  and lower(name) not like '%.pdf'
 );
 create policy jobmatch_media_update_own_folder on storage.objects
 for update to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text)
 with check (
   bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text
-  and coalesce(metadata->>'mimetype','') <> 'application/pdf'
+  and lower(name) not like '%.pdf'
 );
 create policy jobmatch_media_delete_own_folder on storage.objects
 for delete to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
@@ -395,16 +395,14 @@ for select to authenticated using (
 create policy jobmatch_cvs_insert_own_folder on storage.objects
 for insert to authenticated with check (
   bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
-  and lower(name) like '%.pdf' and metadata->>'mimetype' = 'application/pdf'
-  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+  and lower(name) like '%.pdf'
 );
 create policy jobmatch_cvs_update_own_folder on storage.objects
 for update to authenticated using (
   bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
 ) with check (
   bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
-  and lower(name) like '%.pdf' and metadata->>'mimetype' = 'application/pdf'
-  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+  and lower(name) like '%.pdf'
 );
 create policy jobmatch_cvs_delete_own_folder on storage.objects
 for delete to authenticated using (
