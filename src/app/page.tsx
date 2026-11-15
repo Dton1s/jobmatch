@@ -266,11 +266,12 @@ export default function HomePage() {
   }
 
   const recoverAfterResume=useCallback(()=>{
-    swipeSequence.current+=1;swipeInProgress.current=false;
+    // Focus recovery only repairs the interaction/realtime channel. The deck
+    // query is driven by its data/filter dependencies, not window focus, so we
+    // keep the already loaded cards and the user's current position in memory.
     try{supabase?.realtime.connect();}catch(error){console.warn("JobMatch: no se pudo solicitar la reconexión de Realtime",error);}
     setRealtimeRecoveryKey((value)=>value+1);
-    if(view==="discover")void loadDeck();
-  },[loadDeck,view]);
+  },[]);
 
 function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:string):Promise<T>{
   let timer:ReturnType<typeof setTimeout>;
