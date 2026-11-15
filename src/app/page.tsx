@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { AlertTriangle, AppWindow, BriefcaseBusiness, ChevronDown, Compass, Filter, LogOut, MessageCircle, SlidersHorizontal, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
+import type { Session } from "@supabase/supabase-js";
 import { CardEditor } from "@/components/CardEditor";
 import { CompanyBillingPanel } from "@/components/CompanyBillingPanel";
 import { MatchChat } from "@/components/MatchChat";
@@ -47,6 +48,8 @@ export default function HomePage() {
   const [newMatch,setNewMatch] = useState<Match|null>(null);
   const [loading,setLoading] = useState(true);
   const [booting,setBooting] = useState(true);
+  const authUserId = useRef<string|null>(null);
+  const deckLoaded = useRef(false);
   const [notice,setNotice] = useState("");
   const [successToast,setSuccessToast] = useState("");
   const successToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,17 +132,27 @@ export default function HomePage() {
   useEffect(()=>{
     if (!supabase) { setBooting(false); return; }
     let cancelled=false;
-    void supabase.auth.getSession().then(({data})=>{
-      if(cancelled)return;
-      const current=data.session?.user;
-      setUser(current?{id:current.id,email:current.email}:null);
-      if(current)void loadAccount(current.id); else setBooting(false);
-    });
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+    const applySession=(session: Session|null)=>{
       const current=session?.user;
-      setUser(current?{id:current.id,email:current.email}:null);
-      if(current)void loadAccount(current.id); else {setProfile(null);setWorkerCard(null);setOffers([]);setBooting(false);}
-    });
+      const nextUser=current?{id:current.id,email:current.email}:null;
+      setUser((previous)=>previous?.id===nextUser?.id&&previous?.email===nextUser?.email?previous:nextUser);
+      if(current){
+        // Supabase emits TOKEN_REFRESHED when a backgrounded tab resumes.
+        // Refresh account data only when the signed-in identity actually changes.
+        if(authUserId.current!==current.id){
+          authUserId.current=current.id;
+          deckLoaded.current=false;
+          setLoading(true);
+          void loadAccount(current.id);
+        }
+      }else if(authUserId.current!==null){
+        authUserId.current=null;
+        deckLoaded.current=false;
+        setProfile(null);setWorkerCard(null);setOffers([]);setCards([]);setMatches([]);setUndo(null);setLoading(false);setBooting(false);
+      }else setBooting(false);
+    };
+    void supabase.auth.getSession().then(({data})=>{if(!cancelled)applySession(data.session);});
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>applySession(session));
     let removeAppListener:(()=>void)|undefined;
     if(Capacitor.isNativePlatform()) void import("@capacitor/app").then(({App})=>App.addListener("appUrlOpen",async({url})=>{
       if(!url.includes("auth/callback") || !supabase)return;
@@ -186,9 +199,9 @@ export default function HomePage() {
 
   const loadDeck=useCallback(async()=>{
     if(!profile?.role||!supabase)return;
-    if(profile.role==="company"&&!selectedOffer){setCards([]);setLoading(false);return;}
-    if(profile.role==="worker"&&!workerCard){setCards([]);setLoading(false);return;}
-    setLoading(true);
+    if(profile.role==="company"&&!selectedOffer){setCards([]);deckLoaded.current=true;setLoading(false);return;}
+    if(profile.role==="worker"&&!workerCard){setCards([]);deckLoaded.current=true;setLoading(false);return;}
+    if(!deckLoaded.current)setLoading(true);
     try{
       if(profile.role==="company"){
         const offer=selectedOffer!;
@@ -202,6 +215,7 @@ export default function HomePage() {
         const candidates=((rows??[]) as WorkerCard[]).filter((item)=>item.user_id!==profile.id&&!seen.has(item.id)).map((item)=>({...item,distanceKm:distanceKm(centerLat,centerLng,item.lat,item.lng),interested:interested.has(item.id)})).filter((item)=>item.distanceKm!<=distance&&(sector==="Todos los sectores"||item.sector===sector)&&(availability==="Todas las disponibilidades"||item.availability===availability));
         candidates.sort((a,b)=>Number(b.is_demo)-Number(a.is_demo)||Number(b.is_featured)-Number(a.is_featured)||a.distanceKm!-b.distanceKm!);
         setCards(candidates);
+        deckLoaded.current=true;
         if(candidates.length)void supabase.from("jobmatch_card_views").insert({viewer_id:profile.id,worker_card_id:candidates[0].id,job_offer_id:null});
       }else{
         const ownCard=workerCard!;
@@ -212,9 +226,10 @@ export default function HomePage() {
         const seen=new Set((prior??[]).map((row)=>row.job_offer_id));
         const candidates=((rows??[]) as JobOffer[]).filter((item)=>item.company_id!==profile.id&&!seen.has(item.id)&&(sector==="Todos los sectores"||item.sector===sector)&&(item.salary_amount??0)>=minSalary).map((item)=>({...item,distanceKm:distanceKm(profile.lat??ownCard.lat,profile.lng??ownCard.lng,item.lat,item.lng)})).filter((item)=>item.distanceKm!<=distance&&(availability==="Todas las disponibilidades"||item.shift_type===availability));
       candidates.sort((a,b)=>Number(Boolean(b.is_boosted&&b.boost_expires_at&&new Date(b.boost_expires_at).getTime()>Date.now()))-Number(Boolean(a.is_boosted&&a.boost_expires_at&&new Date(a.boost_expires_at).getTime()>Date.now()))||Number(b.is_demo)-Number(a.is_demo)||a.distanceKm!-b.distanceKm!);setCards(candidates);
+        deckLoaded.current=true;
         if(candidates.length)void supabase.from("jobmatch_card_views").insert({viewer_id:profile.id,worker_card_id:null,job_offer_id:candidates[0].id});
       }
-    }catch(cause){setNotice(cause instanceof Error?cause.message:"No se pudieron cargar las tarjetas.");setCards([]);}
+    }catch(cause){setNotice(cause instanceof Error?cause.message:"No se pudieron cargar las tarjetas.");setCards([]);deckLoaded.current=true;}
     finally{setLoading(false);}
   },[profile,selectedOffer,workerCard,distance,sector,minSalary,availability]);
   useEffect(()=>{void loadDeck();},[loadDeck]);
@@ -397,10 +412,14 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
   if(!profile?.role)return <main className="role-screen"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="JobMatch"/></a><div className="role-copy"><span className="eyebrow">EMPIEZA POR TU OBJETIVO</span><h1>¿Qué te trae<br/>por aquí, <em>{user.email?.split("@")[0]}?</em></h1><p>Elige tu modo principal. Si lo necesitas, podrás activar el otro más adelante desde Perfil y ajustes.</p></div><div className="role-cards"><button onClick={()=>void chooseRole("worker")} className="role-card worker-role"><span className="role-icon"><UserRound/></span><span className="eyebrow">TRABAJADOR</span><strong>Busco trabajo</strong><p>Descubre ofertas con salario claro y cerca de ti.</p><span className="role-arrow">↗</span></button><button onClick={()=>void chooseRole("company")} className="role-card company-role"><span className="role-icon"><BriefcaseBusiness/></span><span className="eyebrow">EMPRESA</span><strong>Soy empresa / Busco personal</strong><p>Publica vacantes y encuentra talento local.</p><span className="role-arrow">↗</span></button></div>{notice&&<p className="form-error">{notice}</p>}</main>;
   const needsSetup=!profile.onboarding_complete||(profile.role==="worker"&&!workerCard);
   if(editing||needsSetup)return <main className="editor-screen"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="JobMatch"/></a><CardEditor key={`${profile.role}-${selectedOfferId||"new"}`} profile={profile} existingWorker={workerCard} existingOffer={selectedOffer} offers={offers} onSelectOffer={setSelectedOfferId} onToggleOffer={(offer)=>void toggleOffer(offer)} onCancel={()=>setEditing(false)} onSaved={async()=>{await loadAccount(profile.id);setEditing(false);showSuccessToast(profile.role==="worker"?"Ficha guardada correctamente":"Oferta guardada correctamente");}}/></main>;
+  const deckVisible=view==="discover"&&!activeMatch;
   return <main className="app-shell">
     <header className="product-header"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="JobMatch"/></a>{dualModeEnabled&&<div className="mode-switch" role="group" aria-label="Modo de uso"><motion.span className="mode-indicator" layout transition={{type:"spring",stiffness:440,damping:33}} style={{left:profile.role==="worker"?4:"50%"}}/><button className={profile.role==="worker"?"selected":""} onClick={()=>void changeRole("worker")}><UserRound size={14}/> Trabajador</button><button className={profile.role==="company"?"selected":""} onClick={()=>void changeRole("company")}><BriefcaseBusiness size={14}/> Empresa</button></div>}<div className="header-tools"><button className="header-tool" onClick={()=>setFiltersOpen(true)} aria-label="Abrir filtros"><Filter size={18}/><span>Filtros</span></button><button className="profile-tool" onClick={()=>setSettingsOpen(true)} aria-label="Perfil y ajustes"><Avatar className="profile-tool-avatar" src={activeIdentityAvatar} name={activeIdentityName}/><span className="profile-tool-name">{activeIdentityName}</span><ChevronDown size={13}/></button></div></header>
     <div className="app-main">
-      {view==="discover"?<SwipeDeck role={profile.role} offer={selectedOffer} distance={distance} cards={cards} loading={loading} undoAvailable={Boolean(undo)} isPro={Boolean(profile.is_pro&&profile.pro_expires_at&&new Date(profile.pro_expires_at).getTime()>Date.now())} onContactDirect={(card)=>void startProChat(card)} pausedOffer={offers.find((item)=>!item.is_active)??null} onActivateOffer={(offer)=>void toggleOffer(offer)} onUndo={()=>void undoLast()} onSwipe={(card,direction)=>void decide(card,direction)} onCreateOffer={()=>{setSelectedOfferId("");setEditing(true);}} onShowFilters={()=>setFiltersOpen(true)} onResetDemo={()=>void resetDemoSwipes()} onModalOpen={()=>setNotice("")}/>:activeMatch?<MatchChat match={activeMatch} profile={profile} onClose={()=>setActiveMatch(null)} onActivity={refreshMatches} onViewProfile={()=>setProfileMatch(activeMatch)}/>:<MatchesView matches={matches} profile={profile} onOpen={(match)=>void markMatchRead(match)} onViewProfile={setProfileMatch}/>}
+      <div className={deckVisible?"deck-view":"deck-view is-hidden"}>
+        <SwipeDeck role={profile.role} offer={selectedOffer} distance={distance} cards={cards} loading={loading} undoAvailable={Boolean(undo)} isPro={Boolean(profile.is_pro&&profile.pro_expires_at&&new Date(profile.pro_expires_at).getTime()>Date.now())} visible={deckVisible} onContactDirect={(card)=>void startProChat(card)} pausedOffer={offers.find((item)=>!item.is_active)??null} onActivateOffer={(offer)=>void toggleOffer(offer)} onUndo={()=>void undoLast()} onSwipe={(card,direction)=>void decide(card,direction)} onCreateOffer={()=>{setSelectedOfferId("");setEditing(true);}} onShowFilters={()=>setFiltersOpen(true)} onResetDemo={()=>void resetDemoSwipes()} onModalOpen={()=>setNotice("")}/>
+      </div>
+      {!deckVisible&&(activeMatch?<MatchChat match={activeMatch} profile={profile} onClose={()=>setActiveMatch(null)} onActivity={refreshMatches} onViewProfile={()=>setProfileMatch(activeMatch)}/>:<MatchesView matches={matches} profile={profile} onOpen={(match)=>void markMatchRead(match)} onViewProfile={setProfileMatch}/>)}
     </div>
     <nav className="mobile-bottom-nav"><button className={view==="discover"?"active":""} onClick={()=>{setView("discover");setActiveMatch(null);}}><Compass/><span>Descubrir</span></button><button className={view==="matches"?"active":""} onClick={()=>{setView("matches");setActiveMatch(null);}}><MessageCircle/><span>Conexiones</span>{matches.some((match)=>match.unread)&&<i/>}</button><button onClick={()=>setSettingsOpen(true)}><UserRound/><span>Mi perfil</span></button></nav>
     <AnimatePresence>{filtersOpen&&<motion.div className="drawer-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setFiltersOpen(false)}><motion.aside className="filter-drawer" initial={{x:"100%"}} animate={{x:0}} exit={{x:"100%"}} transition={{type:"spring",damping:30,stiffness:280}} onClick={(event)=>event.stopPropagation()}><div className="drawer-heading"><div><span className="eyebrow">DESCUBRIR MEJOR</span><h2>Filtros</h2></div><CloseButton className="icon-close" onClick={()=>setFiltersOpen(false)} label="Cerrar filtros"/></div><div className="distance-presets" role="group" aria-label="Rango de distancia"><button className={distance<=10?"selected":""} onClick={()=>setDistance(10)}>Cerca<small>Hasta 10 km</small></button><button className={distance>10&&distance<=25?"selected":""} onClick={()=>setDistance(25)}>Media<small>10–25 km</small></button><button className={distance>25?"selected":""} onClick={()=>setDistance(50)}>Lejos<small>Más de 25 km</small></button></div><label className="filter-control"><span>Distancia máxima <b>{distance} km</b></span><input type="range" min="1" max="50" step="1" value={distance} onChange={(event)=>setDistance(Number(event.target.value))}/><small>Afina el radio desde 1 hasta 50 km.</small></label><label className="filter-control">Sector<select value={sector} onChange={(event)=>setSector(event.target.value)}><option>Todos los sectores</option>{["Hostelería","Comercio","Logística","Atención al cliente","Limpieza","Administración","Construcción","Sanidad","Tecnología","Otro"].map((item)=><option key={item}>{item}</option>)}</select></label>{profile.role==="worker"?<label className="filter-control">Salario mínimo mensual<input type="number" min="0" step="50" value={minSalary} onChange={(event)=>setMinSalary(Number(event.target.value))} placeholder="Sin mínimo"/></label>:<label className="filter-control">Disponibilidad<select value={availability} onChange={(event)=>setAvailability(event.target.value)}><option>Todas las disponibilidades</option><option value="inmediata">Incorporación inmediata</option><option value="fines_de_semana">Fines de semana</option><option value="media_jornada">Media jornada</option><option value="completa">Jornada completa</option></select></label>}{profile.role==="worker"&&<label className="filter-control">Jornada<select value={availability} onChange={(event)=>setAvailability(event.target.value)}><option>Todas las disponibilidades</option><option>Jornada completa</option><option>Media jornada</option><option>Fines de semana</option><option>Turnos rotativos</option></select></label>}<button className="primary-button drawer-apply" onClick={()=>setFiltersOpen(false)}><SlidersHorizontal size={16}/> Ver resultados</button><button className="quiet-button drawer-clear" onClick={()=>{setDistance(25);setSector("Todos los sectores");setMinSalary(0);setAvailability("Todas las disponibilidades");}}>Limpiar filtros</button></motion.aside></motion.div>}</AnimatePresence>
