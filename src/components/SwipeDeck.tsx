@@ -5,6 +5,7 @@ import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, MapPin, Pau
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase";
+import { CloseButton } from "@/components/CloseButton";
 
 export type DeckCard = (WorkerCard & { distanceKm?: number; interested?: boolean }) | (JobOffer & { distanceKm?: number });
 
@@ -111,7 +112,7 @@ function SwipeDeckCard({ role, card, active, onSwipe, onModalOpen }: { role: Rol
       </div>
     </motion.article>
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{active && detailsOpen && <motion.div className="sheet-backdrop deck-details-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDetailsOpen(false)}><motion.section className="details-sheet deck-details-modal" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 280 }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalles completos">
-      <header className="deck-details-header"><div className="deck-details-heading"><h2>{title}</h2><p>{detailPosition} · {detailLocation}</p><div><span><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span>{detailBadge&&<span>{detailBadge}</span>}</div></div><button className="sheet-close" onClick={() => setDetailsOpen(false)} aria-label="Cerrar"><X size={18}/></button></header>
+      <header className="deck-details-header"><div className="deck-details-heading"><h2>{title}</h2><p>{detailPosition} · {detailLocation}</p><div><span><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span>{detailBadge&&<span>{detailBadge}</span>}</div></div><CloseButton className="sheet-close" onClick={() => setDetailsOpen(false)} label="Cerrar detalles"/></header>
       <div className="deck-details-body">{job ? <OfferDetails offer={job}/> : worker && <CandidateDetails worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={toggleAudio}/>}</div>
       <footer className="deck-details-actions"><button className="secondary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "left"); }}><X size={17}/> Rechazar</button><button className="primary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "right"); }}><Heart size={17} fill="currentColor"/> {isWorker ? "Aplicar" : "Me interesa"}</button></footer>
     </motion.section></motion.div>}</AnimatePresence>, document.body)}

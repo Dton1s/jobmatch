@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, MapPin, Phone, ShieldCheck, Sparkles, X } from "lucide-react";
+import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, MapPin, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import { CloseButton } from "@/components/CloseButton";
 import { Avatar } from "@/components/Avatar";
 import { supabase, type JobOffer, type Profile, type Role, type WorkerCard } from "@/lib/supabase";
 
@@ -62,7 +63,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
 
   return <div className="sheet-backdrop profile-sheet-backdrop" onClick={onClose}>
     <section className="details-sheet matched-profile-sheet" role="dialog" aria-modal="true" aria-labelledby="matched-profile-title" onClick={(event) => event.stopPropagation()}>
-      <div className="sheet-handle"/><button className="sheet-close" onClick={onClose} aria-label="Cerrar perfil"><X size={18}/></button>
+      <div className="sheet-handle"/><CloseButton className="sheet-close" onClick={onClose} label="Cerrar perfil"/>
       {loading ? <div className="profile-sheet-loading"><span className="loader"/><p>Cargando perfil ampliado…</p></div> : error && !person ? <p className="form-error">{error}</p> : person && <>
         <div className="matched-profile-hero"><Avatar className="matched-profile-avatar" src={avatar} name={name}/><div className="matched-profile-heading"><span className="eyebrow">{isWorkerViewer ? "NEGOCIO CONECTADO" : "PERFIL PROFESIONAL"}</span><h2 id="matched-profile-title">{name}</h2><p>{isWorkerViewer ? `${person.company_sector || offer?.sector || "Empresa local"}${person.city ? ` · ${person.city}` : ""}` : `${worker?.desired_position || "Profesional"}${worker?.age ? ` · ${worker.age} años` : person.birth_year ? ` · ${new Date().getFullYear() - person.birth_year} años` : ""}${person.city ? ` · ${person.city}` : ""}`}</p></div></div>
         {isWorkerViewer ? <>

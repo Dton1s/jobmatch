@@ -2,13 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://jobmatch.es"),
+  metadataBase: new URL("https://jobmatch.nebuladigitalstudio.es"),
   title: { default: "JobMatch · Empleo cerca de ti", template: "%s" },
   description: "Encuentra trabajo cerca de ti o conecta con talento local. Desliza, conecta y habla directamente.",
   alternates: { canonical: "/" },
-  openGraph: { type: "website", url: "https://jobmatch.es/", siteName: "JobMatch", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
+  openGraph: { type: "website", url: "https://jobmatch.nebuladigitalstudio.es/", siteName: "JobMatch", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
   twitter: { card: "summary", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg" },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "JobMatch" },
 };
 export const viewport: Viewport = { themeColor: "#f8f7f4", width: "device-width", initialScale: 1, viewportFit: "cover" };

@@ -1,68 +1,203 @@
 # JobMatch
 
-Aplicación web instalable para conectar trabajadores y negocios locales mediante tarjetas, intereses recíprocos y chat. La interfaz está en español y se adapta a móvil y escritorio.
+JobMatch conecta a trabajadores y empresas de una misma zona mediante fichas profesionales, ofertas con salario visible, intereses mutuos y chat. La interfaz es mobile-first y se exporta como sitio estático de Next.js; Capacitor puede cargar esa exportación como aplicación Android.
 
-## 1. Preparar Supabase
+## Índice
 
-1. Crea o elige un proyecto de Supabase.
-2. Si partes de una instalación anterior de JobMatch, ejecuta `supabase/upgrade_v2.sql` y después `supabase/upgrade_profiles.sql` para añadir campos y vistas sin borrar datos; para una instalación nueva ejecuta `supabase/schema.sql`. Los scripts solo crean o modifican objetos con prefijo `jobmatch_` y usan el bucket reservado `jobmatch-media`.
-3. Opcionalmente ejecuta `supabase/seed_demo.sql` para añadir ocho fichas y ocho ofertas de ejemplo del área Torrevieja/Alicante. Están marcadas como demostración, no tienen usuarios de Auth asociados y no pueden crear matches reales.
-4. En **Authentication → Providers**, activa Google. En Google Cloud, configura el callback de Supabase como redirect URI OAuth.
-5. En **Authentication → URL Configuration**, añade `http://localhost:3000`, `https://jobmatch.es/`, `https://jobmatch.nebuladigitalstudio.es/` y `es.nebuladigitalstudio.jobmatch://auth/callback` a las URLs de redirección permitidas. En web, el retorno usa el origen actual para que funcionen ambos dominios.
-6. Copia `.env.example` como `.env.local` y añade la URL del proyecto y la clave pública/anon de Supabase. No uses una `service_role` en el navegador.
+- [Estado y alcance](#estado-y-alcance)
+- [Cómo se usa](#cómo-se-usa)
+- [Arquitectura](#arquitectura)
+- [Requisitos y desarrollo local](#requisitos-y-desarrollo-local)
+- [Supabase](#supabase)
+- [Variables de entorno](#variables-de-entorno)
+- [Despliegue web y SEO](#despliegue-web-y-seo)
+- [Capacitor y Android](#capacitor-y-android)
+- [Auditoría de seguridad y privacidad](#auditoría-de-seguridad-y-privacidad)
+- [Plan futuro: dominio propio y Supabase aislado](#plan-futuro-dominio-propio-y-supabase-aislado)
+- [Solución de problemas](#solución-de-problemas)
 
-### Eliminación de cuenta
+## Estado y alcance
 
-Ejecuta `supabase/legal_and_delete_account.sql` en el SQL Editor del proyecto Supabase para habilitar el botón de eliminación de cuenta. La app elimina primero los archivos del usuario en `jobmatch-media` y después llama a `jobmatch_delete_my_account()`, que borra los registros relacionados y el usuario autenticado de Supabase Auth. También publica `/eliminar-cuenta` como recurso web externo; comparte esa URL en el campo de eliminación de cuentas de Play Console.
+- Repositorio: `Dton1s/jobmatch`, rama de publicación: `main`.
+- Proyecto Vercel: `jobmatch`, equipo `nebula-b346`.
+- Dominio operativo conocido: `https://jobmatch.nebuladigitalstudio.es`.
+- Dominio objetivo: `https://jobmatch.es` (la app no debe depender de él hasta que esté registrado y su DNS resuelva).
+- Supabase actual: instancia compartida con otros proyectos de Nébula. Las tablas, tipos, funciones, triggers, índices y políticas propias de la app usan el prefijo `jobmatch_`; el bucket dedicado se llama `jobmatch-media`.
+- Suscripciones, pagos y funciones de pago como `super like` aún no están integradas.
 
-## 2. Ejecutar en local
+## Cómo se usa
 
-Requiere Node.js 20 o posterior.
+### Trabajador
+
+1. Inicia sesión con Google y elige **Trabajador**.
+2. Completa su Perfil Base si quiere guardar datos reutilizables.
+3. Crea o actualiza su ficha: puesto buscado, sector, experiencia, disponibilidad, habilidades, ciudad y ubicación. Puede añadir avatar, audio de presentación (máximo 15 segundos) y currículum PDF.
+4. En **Descubrir**, filtra las ofertas por distancia, sector, disponibilidad y salario. Puede abrir detalles, descartar o mostrar interés.
+5. Si la empresa también muestra interés, aparece una conexión. Desde ahí puede abrir el chat, compartir respuestas rápidas y responder a propuestas de entrevista.
+
+### Empresa
+
+1. Inicia sesión con Google y elige **Empresa**.
+2. Completa el Perfil Base comercial y publica una o varias ofertas. Cada oferta requiere un salario visible, tiene jornada y puede pausarse o reactivarse.
+3. En **Descubrir**, elige una oferta activa y revisa trabajadores cercanos.
+4. Un interés mutuo crea un match y habilita la conversación. Las entrevistas se proponen como tarjetas dentro del chat; la otra persona puede confirmar, cancelar o pedir otra hora.
+
+### Perfil, chat y eliminación
+
+- El selector superior permite cambiar de identidad sin perder la pestaña abierta. **Perfil y ajustes** contiene estadísticas, ofertas, edición y cierre de sesión.
+- Los mensajes y matches se actualizan con Supabase Realtime.
+- La eliminación dentro de la app borra archivos de la carpeta del usuario en `jobmatch-media` y llama a `jobmatch_delete_my_account()` para eliminar filas relacionadas y el usuario de Auth.
+- `/eliminar-cuenta` ofrece además instrucciones externas para solicitar el borrado sin tener instalada la app.
+
+## Arquitectura
+
+| Área | Implementación |
+| --- | --- |
+| Web | Next.js App Router, React, TypeScript, Tailwind CSS 4, Framer Motion y Lucide |
+| Backend | Supabase Auth, PostgreSQL con RLS, Storage y Realtime |
+| Exportación | `output: "export"`; la web resultante queda en `out/` |
+| Android | Capacitor 7, `appId` `es.nebuladigitalstudio.jobmatch`, esquema OAuth `es.nebuladigitalstudio.jobmatch://auth/callback` |
+| Rutas públicas | `/`, `/aviso-legal`, `/privacidad`, `/terminos`, `/eliminar-cuenta` |
+
+Las páginas legales y la portada se prerenderizan estáticamente. Las funciones de usuario se ejecutan en el navegador y usan la clave pública/anon de Supabase junto con las políticas RLS. No se debe incluir `service_role` en el frontend.
+
+## Requisitos y desarrollo local
+
+Requiere Node.js 20 o posterior y npm.
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Abre `http://localhost:3000`, inicia sesión con Google y elige Trabajador o Empresa. La ficha de trabajador admite presentación de audio de hasta 15 segundos. Las ofertas exigen un salario visible y caducan a los 14 días.
+En PowerShell, crea `.env.local` copiando `.env.example` y rellena las variables. Después abre `http://localhost:3000`.
 
-## 3. Publicar en Vercel
+Comprobaciones solicitadas para cambios de código:
 
-1. Importa este proyecto en Vercel.
-2. Configura `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en los entornos necesarios.
-3. Despliega y configura `jobmatch.es` como dominio canónico; conserva `jobmatch.nebuladigitalstudio.es` como dominio compatible o redirección.
-4. Añade el dominio final a las URLs permitidas de Supabase Auth y a los orígenes autorizados de Google OAuth.
+```bash
+npm run typecheck
+npm run build
+git diff --check
+```
 
-La compilación produce una exportación web estática en `out`, también compatible con el contenedor móvil de Capacitor.
+`npm run build` genera la exportación estática en `out/`. No hay suite de tests automatizados configurada en este repositorio.
 
-## 4. Preparar Android con Capacitor
+## Supabase
 
-Configura primero las variables y genera la web:
+### Objetos de JobMatch
+
+El esquema actual contiene, entre otros, `jobmatch_profiles`, `jobmatch_worker_cards`, `jobmatch_job_offers`, `jobmatch_swipes`, `jobmatch_matches`, `jobmatch_messages`, `jobmatch_card_views` y `jobmatch_company_contacts`. El trigger de intereses mutuos crea matches y `jobmatch_messages` almacena mensajes y propuestas estructuradas.
+
+Los scripts SQL pertenecen a esta app:
+
+- `supabase/schema.sql`: esquema completo para una base nueva. **No lo ejecutes sobre una base compartida que ya tenga estas tablas**.
+- `supabase/upgrade_v2.sql`, `supabase/upgrade_profiles.sql`, `supabase/upgrade_cv_v4.sql`: ampliaciones incrementales de versiones anteriores.
+- `supabase/fix_profiles_v3.sql`, `supabase/fix_match_profile_rls.sql`: columnas y permisos de lectura del perfil ampliado.
+- `supabase/fix_storage_cv.sql`, `supabase/fix_storage_all.sql`: políticas y configuración del bucket; lee la nota de seguridad antes de aplicar o reutilizar estas políticas.
+- `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
+- `supabase/seed_demo.sql`: crea ocho ofertas y ocho candidatos ficticios de Torrevieja/Alicante, identificados como `is_demo`.
+
+Para una base nueva, ejecuta `schema.sql`, después `legal_and_delete_account.sql` y, si quieres, `seed_demo.sql`. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
+
+### Auth y Google OAuth
+
+1. En Supabase, activa el proveedor Google y configura sus credenciales OAuth.
+2. En **Authentication → URL Configuration**, registra los orígenes web que realmente se van a usar, por ejemplo `http://localhost:3000` y `https://jobmatch.nebuladigitalstudio.es/`. Cuando el dominio nuevo esté activo, añade `https://jobmatch.es/`.
+3. Añade `es.nebuladigitalstudio.jobmatch://auth/callback` a las URLs permitidas para redirección.
+4. En Google Cloud, configura el callback que muestra Supabase como URI de redirección autorizada.
+5. El inicio web vuelve al origen actual; el inicio nativo abre el flujo OAuth en el navegador del sistema y procesa el enlace profundo con `@capacitor/app`.
+
+Las listas de redirección de Supabase y Google son configuración externa: el build no puede comprobar que las credenciales, consent screen, URLs permitidas o callback estén bien en sus paneles.
+
+### Storage
+
+Los avatares, logos, audios y CV se guardan en `jobmatch-media`. El navegador valida el PDF hasta 5 MB y el audio se detiene a los 15 segundos. La aplicación espera que el bucket exista y las políticas que correspondan a la versión desplegada estén aplicadas.
+
+> **Pendiente de seguridad antes de publicar CV reales:** `schema.sql` crea `jobmatch-media` como bucket público y `fix_storage_all.sql` permite lectura a cualquier usuario autenticado del bucket. Los enlaces de CV creados con `getPublicUrl()` son accesibles para cualquiera que tenga el enlace; no equivalen a acceso privado solo para matches. Antes de admitir currículums reales en producción, cambia el diseño a objetos privados y URLs firmadas/autorizadas, o retira los CV hasta desplegar ese cambio. No amplíes esta política a otros buckets.
+
+## Variables de entorno
+
+Copia `.env.example` a `.env.local` en local y añade las mismas variables en Vercel (Development/Preview/Production según proceda):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<proyecto>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<clave-publica-anon>
+```
+
+Estas dos variables son públicas por diseño y están sujetas a RLS. Nunca uses `SUPABASE_SERVICE_ROLE_KEY` en el cliente o en variables `NEXT_PUBLIC_*`.
+
+## Despliegue web y SEO
+
+Vercel está conectado con `Dton1s/jobmatch`; cada push a `main` inicia un despliegue de producción. Revisa el estado en Vercel después de publicar. Comprueba la versión en el dominio que esté resolviendo correctamente.
+
+El manifest usa rutas relativas (`/`) para que la instalación PWA no quede ligada a un dominio antes de comprarlo. Los metadatos canónicos y el aviso legal deberán reflejar el dominio definitivo cuando el cambio se haga efectivo. No anuncies `jobmatch.es` como dirección operativa mientras su DNS no resuelva.
+
+## Capacitor y Android
+
+`capacitor.config.ts` apunta a `webDir: "out"` y define el esquema Android `https`. En este repositorio **todavía no hay carpeta `android/`**, por tanto `cap sync android` no puede completar la sincronización inicial hasta añadir la plataforma.
+
+Primer alta de Android:
 
 ```bash
 npm run build
 npx cap add android
+```
+
+Después configura el intent filter del callback en `android/app/src/main/AndroidManifest.xml` para el esquema `es.nebuladigitalstudio.jobmatch`, host `auth` y ruta `/callback`, con las categorías `DEFAULT` y `BROWSABLE`. Revisa también los permisos de micrófono y ubicación, el icono adaptativo y los iconos de lanzamiento; el único recurso de marca incluido ahora es `public/icon.svg`, no un paquete de recursos Android.
+
+Sincronización y apertura posteriores:
+
+```bash
+npm run build
 npm run cap:sync
 npm run cap:open
 ```
 
-Se abrirá Android Studio con `appId` `es.nebuladigitalstudio.jobmatch`. Para cambios posteriores de la web, vuelve a ejecutar `npm run build` y `npm run cap:sync` antes de compilar el APK. La autenticación abre Google en el navegador del sistema y vuelve mediante `es.nebuladigitalstudio.jobmatch://auth/callback`; al generar la plataforma, añade un intent filter `VIEW` con `DEFAULT` y `BROWSABLE` para el esquema `es.nebuladigitalstudio.jobmatch`, host `auth` y ruta `/callback` en `android/app/src/main/AndroidManifest.xml`. Después registra el mismo redirect URI en Supabase Auth. En web se vuelve al origen actual.
+En Android Studio genera y firma un Android App Bundle (`.aab`) para Play Console. Usa el mismo `applicationId` en todas las versiones publicadas y guarda de forma segura el keystore y sus copias de seguridad. El proyecto nativo, el intent filter, el icono de Play y la compilación firmada requieren validación en Android Studio/dispositivo; no pueden confirmarse desde el build web.
 
-La grabación de voz requiere permiso de micrófono. La ubicación se pide de forma explícita al pulsar **Detectar mi ubicación actual**; si se prefiere, se puede elegir una ciudad y código postal. Las coordenadas se guardan sin mostrarse en el formulario.
+## Auditoría de seguridad y privacidad
 
-## Alcance de la primera versión
+- La base compartida exige mantener el prefijo `jobmatch_` en tablas, funciones, triggers, índices y políticas. No renombres ni modifiques objetos de otros proyectos.
+- Google OAuth usa el correo como identidad; no se debe mostrar a otros usuarios como contacto.
+- Los perfiles ampliados y el teléfono comercial están condicionados por matches y preferencias, mediante RLS y la interfaz.
+- La solicitud de borrado in-app borra la carpeta cuyo primer nivel es el UUID de usuario antes de llamar al RPC. Revisa que las rutas futuras de Storage sigan dentro de esa carpeta.
+- El aviso de privacidad y los términos nombran `jobmatch.es` y `@jobmatch.es`. Antes de usar el dominio, registra y configura el dominio y crea/verifica esos buzones o reenvíos; comprueba que las solicitudes de privacidad y eliminación llegan a una persona responsable.
+- La auditoría de código no verifica el estado real de las políticas, OAuth, Realtime, bucket o funciones en el proyecto Supabase. Contrasta esos ajustes con los scripts y realiza un inicio, match, chat, subida y borrado controlados en un entorno de prueba.
 
-- Modo trabajador y empresa con cambio de rol, ficha editable y geolocalización voluntaria.
-- Perfil Base separado para datos reutilizables de trabajador y empresa; al crear fichas u ofertas se proponen esos valores.
-- Ficha ampliada del contacto accesible desde Conexiones y la cabecera del chat. Los datos completos se muestran solo cuando existe un match; el teléfono comercial aparece únicamente si el negocio activa la opción.
-- Mazo ordenado por distancia, filtrado por radio y sector.
-- Match recíproco creado por trigger SQL, con bandeja de conexiones y mensajes en tiempo real.
-- Plantillas de contacto rápido para empresas.
-- El botón de propuesta directa de pago aparece bloqueado hasta integrar y activar una suscripción; no se cobra nada en esta versión.
-- `is_featured` existe para soportar una futura opción de trabajador destacado, pero la compra/activación requiere integrar pagos y reglas de moderación.
+## Plan futuro: dominio propio y Supabase aislado
 
-## Privacidad y operación
+### A. Comprar y activar `jobmatch.es`
 
-Los usuarios deben iniciar sesión para consultar tarjetas y subir archivos. La ubicación se solicita solo al pulsar el botón de geolocalización; se guarda en la tarjeta para calcular proximidad y se comparte con usuarios autenticados. La aplicación no procesa pagos ni recopila CV en PDF. Antes de abrir el servicio al público, publica políticas de privacidad y términos, define contacto para derechos de datos y revisa requisitos laborales locales.
+1. Registra el dominio en el proveedor elegido y configura los registros DNS exactamente como Vercel los muestre para el proyecto. Espera a que Vercel confirme la verificación y el certificado TLS.
+2. En Vercel, añade `jobmatch.es` y `www.jobmatch.es`; elige un único dominio canónico y configura el otro para redirigir a él.
+3. Crea y prueba `soporte@jobmatch.es` y `privacidad@jobmatch.es` o reenvíos equivalentes antes de dejarlos como vías oficiales de contacto.
+4. Añade el dominio final a las URLs de Supabase Auth y al origen/redirect de Google OAuth. Conserva temporalmente el subdominio anterior durante la transición.
+5. Actualiza `metadataBase`, canonical/OG, textos legales y cualquier enlace absoluto de eliminación de cuenta. El manifest ya es relativo y no necesita cambiar de origen.
+6. Verifica HTTPS, login/logout, callback OAuth, páginas legales, enlace de borrado y PWA en ambos dominios. Después establece la redirección permanente del dominio anterior y actualiza Google Search Console si se usa.
 
-Las tablas de mensajes y matches se añaden a `supabase_realtime` de forma condicional. Si el rol que ejecuta el SQL no tiene permiso para modificar la publicación, un administrador del proyecto deberá habilitar Realtime para las dos tablas `jobmatch_` desde Supabase.
+No copies valores DNS de una guía antigua: utiliza los valores que Vercel muestre en el panel cuando se configure el dominio.
+
+### B. Migrar desde Supabase compartido a un proyecto JobMatch propio
+
+La migración es un cambio de identidad de backend, no basta con cambiar las dos variables de entorno. Si se apunta una copia nueva vacía, los usuarios aparecerán sin fichas, los matches desaparecerán y los enlaces de archivo dejarán de funcionar.
+
+1. Crea el nuevo proyecto JobMatch en el plan elegido y guarda URL y claves en un gestor seguro. Mantén el proyecto compartido intacto durante la migración y prepara una ventana de mantenimiento.
+2. Ejecuta `supabase/schema.sql` y `supabase/legal_and_delete_account.sql` en el proyecto nuevo. Revisa todas las políticas RLS, el bucket, MIME/tamaño, extensiones necesarias y Realtime. No incluyas secretos en el repositorio.
+3. Configura Google OAuth, URLs de retorno web y `es.nebuladigitalstudio.jobmatch://auth/callback`. Añade el dominio nuevo cuando ya exista.
+4. Haz copia de seguridad de todos los objetos `jobmatch_*`, datos relacionados, usuarios de Supabase Auth que correspondan y archivos de `jobmatch-media`. Migra usuarios preservando sus UUID para conservar las relaciones; si no se pueden preservar, prepara un proceso de reautenticación y reasociación antes del cambio.
+5. Copia Storage conservando las rutas que contienen el UUID del usuario. Comprueba que las URLs guardadas siguen siendo válidas o regenera las referencias. No migres filas de Nebula Games ni de otros productos.
+6. Ejecuta verificaciones de conteo y relaciones en la copia, y prueba con cuentas de trabajador y empresa: perfil, oferta, upload, swipe mutuo, chat, propuesta, lectura de PDF y borrado.
+7. Actualiza `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en Vercel en todos los entornos; despliega primero Preview y luego Production. Sincroniza `.env.local` y compila de nuevo la APK con el proyecto nuevo.
+8. Conserva backups verificables y acceso de solo lectura al proyecto compartido hasta confirmar la estabilidad de producción. Después retira los secretos antiguos de Vercel y define el plan de apagado con el propietario de Nebula Games.
+
+Una instancia propia separa el riesgo operativo de otros productos y facilita definir capacidad, backups, facturación y acceso. El plan Supabase Pro no sustituye backups, RLS ni el procedimiento de migración.
+
+## Solución de problemas
+
+- **No se conecta a Supabase:** comprueba las dos variables `NEXT_PUBLIC_*`, reinicia el servidor de desarrollo y verifica que la clave sea la pública anon/publishable, no la service role.
+- **Google vuelve a una página de error:** revisa las URLs permitidas de Supabase, la URL de callback que muestra Supabase en Google Cloud y que el `redirectTo` coincida exactamente.
+- **Android no abre el callback:** comprueba el intent filter, el esquema/host/path, el registro de URL en Supabase y el listener `appUrlOpen`; recompila e instala la app después de cambios nativos.
+- **Storage devuelve error RLS:** revisa bucket `jobmatch-media`, el primer segmento del path (`<user-id>/...`), el MIME, el límite configurado y las políticas específicas. No apliques políticas globales sin verificar su alcance.
+- **No aparece Realtime:** habilita `jobmatch_matches` y `jobmatch_messages` en la publicación de Realtime del proyecto correcto.
+- **No funciona el dominio nuevo:** primero valida DNS y TLS en Vercel. Un alias configurado no garantiza que el dominio esté registrado o que ya resuelva públicamente.

@@ -94,3 +94,10 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .deck-details-actions button{min-width:0;min-height:48px;flex:1;justify-content:center;margin:0;white-space:nowrap}
 @media(max-width:700px){.deck-details-modal{width:100%;height:auto;max-height:88dvh;align-self:flex-end;border-radius:24px 24px 0 0}.deck-details-header{padding:calc(16px + env(safe-area-inset-top)) 64px 14px 18px}.deck-details-header .sheet-close{top:calc(14px + env(safe-area-inset-top));right:15px}.deck-details-heading h2{font-size:19px}.deck-details-body{padding:8px 17px 14px}.deck-details-actions{padding:11px 16px calc(11px + env(safe-area-inset-bottom))}}
 @media(min-width:701px){.deck-details-modal{height:min(85vh,850px);max-height:85vh}}
+.icon-close,.sheet-close,.close-control,.drawer-heading .icon-close,.chat-panel .icon-close,.deck-details-header .sheet-close{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;padding:0;border:0;border-radius:999px;background:#f1f5f9;color:#475569;line-height:1;transition:background-color .18s ease}
+.icon-close:hover,.sheet-close:hover,.close-control:hover,.drawer-heading .icon-close:hover,.chat-panel .icon-close:hover,.deck-details-header .sheet-close:hover{background:#e2e8f0}
+.sheet-close{position:absolute;top:15px;right:17px}
+.deck-details-header .sheet-close{position:absolute;top:16px;right:17px}
+.interview-form-title .close-control{position:static;top:auto;right:auto;background-color:#f1f5f9}
+.interview-form-title .close-control:hover{background-color:#e2e8f0}
+@media(max-width:700px){.deck-details-header .sheet-close{top:calc(14px + env(safe-area-inset-top));right:15px}}

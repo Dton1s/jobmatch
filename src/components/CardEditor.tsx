@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, LoaderCircle, MapPin, Mic, Pause, Play, Plus, Save, Square, X } from "lucide-react";
+import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, LoaderCircle, MapPin, Mic, Pause, Play, Plus, Save, Square } from "lucide-react";
+import { CloseButton } from "@/components/CloseButton";
 import { supabase, type JobOffer, type Profile, type WorkerCard } from "@/lib/supabase";
 import { CvUploadField } from "@/components/CvUploadField";
 
@@ -181,7 +182,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
   }
 
   return <section className="editor-panel">
-    <div className="editor-heading"><div><span className="eyebrow">{isWorker ? "TU PERFIL PROFESIONAL" : "GESTIONA TU NEGOCIO"}</span><h2>{isWorker ? "Una buena primera impresión." : "Tu próxima contratación empieza aquí."}</h2></div><button className="icon-close" onClick={onCancel} aria-label="Cerrar"><X size={18}/></button></div>
+    <div className="editor-heading"><div><span className="eyebrow">{isWorker ? "TU PERFIL PROFESIONAL" : "GESTIONA TU NEGOCIO"}</span><h2>{isWorker ? "Una buena primera impresión." : "Tu próxima contratación empieza aquí."}</h2></div><CloseButton className="icon-close" onClick={onCancel} label="Cerrar editor"/></div>
     {!isWorker && <section className="offer-manager"><div className="offer-manager-title"><BriefcaseBusiness size={17}/><b>Mis ofertas</b><button type="button" className="text-action" onClick={() => { setCreatingOffer(true); setFocusedOfferId(""); onSelectOffer(""); }}><Plus size={15}/> Nueva oferta</button></div>
       {offers.length > 0 && <div className="offer-manager-list">{offers.map((offer) => <div className={`managed-offer ${focusedOfferId === offer.id ? "selected" : ""}`} key={offer.id}><button type="button" className="managed-offer-main" onClick={() => { setFocusedOfferId(offer.id); setCreatingOffer(false); onSelectOffer(offer.id); }}><span className={`status-dot ${offer.is_active ? "online" : "offline"}`}/><span><b>{offer.position}</b><small>{offer.business_name} · {offer.is_active ? "Activa" : "Pausada"}</small></span><ChevronDown size={15}/></button><button type="button" className="text-action" onClick={() => onToggleOffer(offer)}>{offer.is_active ? "Pausar" : "Reactivar"}</button></div>)}</div>}
     </section>}
