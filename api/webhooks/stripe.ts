@@ -1,4 +1,5 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
+import { applyStripeEvent, serviceSupabase, stripe } from "../../src/lib/server/billing";
 
 export function GET(): Response {
   return Response.json({ error: "Método no permitido." }, { status: 405 });
@@ -9,7 +10,6 @@ async function syncSubscription(eventId: string, eventType: string, subscription
   if (!companyId) throw new Error("Stripe subscription is missing company_id metadata.");
   const periodEnd = Math.max(0, ...subscription.items.data.map((item) => item.current_period_end));
   if (!periodEnd) throw new Error("Stripe subscription has no billing period end.");
-  const { applyStripeEvent } = await import("../../src/lib/server/billing");
   await applyStripeEvent({
     eventId, eventType, mode: "subscription", companyId,
     customerId: customerId ?? (typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id),
@@ -29,7 +29,6 @@ export async function POST(request: Request): Promise<Response> {
 
   let event: Stripe.Event;
   try {
-    const { stripe } = await import("../../src/lib/server/billing");
     event = stripe().webhooks.constructEvent(Buffer.from(await request.arrayBuffer()), signature, webhookSecret);
   } catch (error) {
     console.error("Invalid Stripe webhook signature:", error);
@@ -37,7 +36,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const { applyStripeEvent, serviceSupabase, stripe } = await import("../../src/lib/server/billing");
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.metadata?.kind === "boost") {

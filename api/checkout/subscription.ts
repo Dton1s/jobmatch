@@ -1,10 +1,11 @@
+import { appBaseUrl, requireCompany, stripe } from "../../src/lib/server/billing";
+
 export function GET(): Response {
   return Response.json({ error: "Método no permitido." }, { status: 405 });
 }
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const { appBaseUrl, requireCompany, stripe } = await import("../../src/lib/server/billing");
     const authorized = await requireCompany(request.headers.get("authorization"));
     if ("status" in authorized) {
       return Response.json({ error: authorized.error }, { status: authorized.status });
