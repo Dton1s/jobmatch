@@ -61,6 +61,13 @@ export default function HomePage() {
 
   useEffect(()=>()=>{if(successToastTimer.current)clearTimeout(successToastTimer.current);},[]);
 
+  useEffect(()=>{
+    const demoReadyMessage="Perfiles de ejemplo listos para volver a probar.";
+    if(notice!==demoReadyMessage)return;
+    const timer=setTimeout(()=>setNotice((current)=>current===demoReadyMessage?"":current),2500);
+    return()=>clearTimeout(timer);
+  },[notice]);
+
   const selectedOffer = offers.find((offer)=>offer.id===selectedOfferId && offer.is_active) ?? null;
 
   const loadAccount = useCallback(async (userId:string) => {

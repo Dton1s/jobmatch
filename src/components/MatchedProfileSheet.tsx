@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, MapPin, Phone, ShieldCheck, X } from "lucide-react";
+import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, MapPin, Phone, ShieldCheck, Sparkles, X } from "lucide-react";
 import { supabase, type JobOffer, type Profile, type Role, type WorkerCard } from "@/lib/supabase";
 
 export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }: { profileId: string; matchId: string; viewerRole: Role | null; onClose: () => void }) {
@@ -72,9 +72,9 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
           {person.show_phone_on_match && (companyPhone || person.company_phone) && <a className="profile-phone-link" href={`tel:${(companyPhone || person.company_phone).replace(/[^+\d]/g, "")}`}><Phone size={16}/> Llamar al negocio · {companyPhone || person.company_phone}</a>}
         </> : <>
           <section className="profile-detail-section"><h3>Presentación</h3><p>{person.default_bio || worker?.bio || "Este profesional aún no ha añadido una presentación."}</p></section>
-          <section className="profile-detail-grid"><div><span>Experiencia</span><b>{worker?.experience_years ?? person.experience_years ?? 0} años</b></div><div><span>Disponibilidad</span><b>{worker?.availability_note || worker?.availability || "Consultar"}</b></div></section>
-          <section className="profile-detail-section"><h3><Languages size={16}/> Idiomas</h3><div className="skill-list">{(person.languages ?? []).map((language) => <span key={language}>{language}</span>)}{!person.languages?.length && <p>Sin idiomas indicados.</p>}</div></section>
-          {worker?.skills?.length ? <section className="profile-detail-section"><h3>Habilidades</h3><div className="skill-list">{worker.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></section> : null}
+          <section className="profile-detail-grid profile-stats-grid"><div><span>Experiencia</span><b>{worker?.experience_years ?? person.experience_years ?? 0} años</b></div><div><span>Disponibilidad</span><b>{worker?.availability_note || worker?.availability || "Consultar"}</b></div></section>
+          <section className="profile-detail-section"><h3><Languages className="profile-detail-icon" size={16}/> Idiomas</h3><div className="skill-list">{(person.languages ?? []).map((language) => <span key={language}>{language}</span>)}{!person.languages?.length && <p>Sin idiomas indicados.</p>}</div></section>
+          {worker?.skills?.length ? <section className="profile-detail-section"><h3><Sparkles className="profile-detail-icon" size={16}/> Habilidades</h3><div className="skill-list">{worker.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></section> : null}
           {(hasLicense || hasVehicle) && <section className="profile-credentials">{hasLicense && <span><ShieldCheck size={15}/> Carnet de conducir</span>}{hasVehicle && <span><CarFront size={15}/> Vehículo propio</span>}</section>}
           {(worker?.cv_url || person.cv_url) && <a className="cv-match-link" href={worker?.cv_url || person.cv_url || undefined} target="_blank" rel="noopener noreferrer"><BriefcaseBusiness size={16}/>📄 Ver Currículum (PDF)<small>{worker?.cv_filename || person.cv_filename || "Abrir documento"}</small></a>}
           {audio && <section className="profile-detail-section"><h3><Clock3 size={16}/> Presentación de voz</h3><audio className="base-audio-preview" controls preload="none" src={audio}/></section>}

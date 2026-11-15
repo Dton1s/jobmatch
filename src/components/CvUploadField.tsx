@@ -24,10 +24,8 @@ export function CvUploadField({ userId, value, filename, onChange }: {
     if (!supabase) { setError("No se pudo conectar con el almacenamiento."); return; }
     setError(""); setUploading(true);
     try {
-      const safeName = file.name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(-100) || "curriculum.pdf";
-      // Keep the UUID as the first Storage folder: jobmatch_media_upload_own_folder
-      // authorizes files inside {userId}/ and existing avatar/audio uploads use it too.
-      const path = `${userId}/cv-${crypto.randomUUID()}-${safeName}`;
+      // Keep the UUID as the first Storage folder, matching avatar/audio uploads.
+      const path = `${userId}/cv-${Date.now()}.pdf`;
       const { error: uploadError } = await supabase.storage.from("jobmatch-media").upload(path, file, { upsert: false, contentType: "application/pdf" });
       if (uploadError) throw uploadError;
       const publicUrl = supabase.storage.from("jobmatch-media").getPublicUrl(path).data.publicUrl;
