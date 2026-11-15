@@ -8,8 +8,12 @@ Aplicación web instalable para conectar trabajadores y negocios locales mediant
 2. Si partes de una instalación anterior de JobMatch, ejecuta `supabase/upgrade_v2.sql` y después `supabase/upgrade_profiles.sql` para añadir campos y vistas sin borrar datos; para una instalación nueva ejecuta `supabase/schema.sql`. Los scripts solo crean o modifican objetos con prefijo `jobmatch_` y usan el bucket reservado `jobmatch-media`.
 3. Opcionalmente ejecuta `supabase/seed_demo.sql` para añadir ocho fichas y ocho ofertas de ejemplo del área Torrevieja/Alicante. Están marcadas como demostración, no tienen usuarios de Auth asociados y no pueden crear matches reales.
 4. En **Authentication → Providers**, activa Google. En Google Cloud, configura el callback de Supabase como redirect URI OAuth.
-5. En **Authentication → URL Configuration**, añade `http://localhost:3000`, `https://jobmatch.nebuladigitalstudio.es` y `es.nebuladigitalstudio.jobmatch://auth/callback` a las URLs de redirección permitidas.
+5. En **Authentication → URL Configuration**, añade `http://localhost:3000`, `https://jobmatch.es/`, `https://jobmatch.nebuladigitalstudio.es/` y `es.nebuladigitalstudio.jobmatch://auth/callback` a las URLs de redirección permitidas. En web, el retorno usa el origen actual para que funcionen ambos dominios.
 6. Copia `.env.example` como `.env.local` y añade la URL del proyecto y la clave pública/anon de Supabase. No uses una `service_role` en el navegador.
+
+### Eliminación de cuenta
+
+Ejecuta `supabase/legal_and_delete_account.sql` en el SQL Editor del proyecto Supabase para habilitar el botón de eliminación de cuenta. La app elimina primero los archivos del usuario en `jobmatch-media` y después llama a `jobmatch_delete_my_account()`, que borra los registros relacionados y el usuario autenticado de Supabase Auth. También publica `/eliminar-cuenta` como recurso web externo; comparte esa URL en el campo de eliminación de cuentas de Play Console.
 
 ## 2. Ejecutar en local
 
@@ -26,7 +30,7 @@ Abre `http://localhost:3000`, inicia sesión con Google y elige Trabajador o Emp
 
 1. Importa este proyecto en Vercel.
 2. Configura `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en los entornos necesarios.
-3. Despliega y conecta el dominio `jobmatch.nebuladigitalstudio.es`.
+3. Despliega y configura `jobmatch.es` como dominio canónico; conserva `jobmatch.nebuladigitalstudio.es` como dominio compatible o redirección.
 4. Añade el dominio final a las URLs permitidas de Supabase Auth y a los orígenes autorizados de Google OAuth.
 
 La compilación produce una exportación web estática en `out`, también compatible con el contenedor móvil de Capacitor.

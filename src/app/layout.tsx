@@ -2,8 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "JobMatch · Empleo cerca de ti",
+  metadataBase: new URL("https://jobmatch.es"),
+  title: { default: "JobMatch · Empleo cerca de ti", template: "%s" },
   description: "Encuentra trabajo cerca de ti o conecta con talento local. Desliza, conecta y habla directamente.",
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", url: "https://jobmatch.es/", siteName: "JobMatch", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
+  twitter: { card: "summary", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "JobMatch" },
 };
