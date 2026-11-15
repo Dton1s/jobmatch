@@ -47,8 +47,18 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
   const [companyPreview, setCompanyPreview] = useState("");
   const [contactLoading, setContactLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const isWorker = tab === "worker";
   const photo = isWorker ? workerPreview || profile.avatar_url || "" : companyPreview || profile.company_logo_url || "";
+
+  useEffect(() => {
+    panelRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  function switchTab(nextTab: "worker" | "company") {
+    setTab(nextTab);
+    requestAnimationFrame(() => panelRef.current?.scrollTo({ top: 0, behavior: "auto" }));
+  }
 
   useEffect(() => {
     if (!supabase) return;
@@ -129,9 +139,9 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
   }
 
   return <div className="drawer-backdrop profile-base-backdrop" onClick={onClose}>
-    <section className="profile-base-panel" role="dialog" aria-modal="true" aria-labelledby="profile-base-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={panelRef} className="profile-base-panel" role="dialog" aria-modal="true" aria-labelledby="profile-base-title" onClick={(event) => event.stopPropagation()}>
       <header className="drawer-heading"><div><span className="eyebrow">DATOS REUTILIZABLES</span><h2 id="profile-base-title">Perfil Base</h2></div><button className="icon-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button></header>
-      <div className="profile-base-tabs" role="tablist" aria-label="Tipo de perfil"><button type="button" role="tab" aria-selected={isWorker} className={isWorker ? "selected" : ""} onClick={() => setTab("worker")}>Datos de Trabajador</button><button type="button" role="tab" aria-selected={!isWorker} className={!isWorker ? "selected" : ""} onClick={() => setTab("company")}>Datos de Empresa</button></div>
+      <div className="profile-base-tabs" role="tablist" aria-label="Tipo de perfil"><button type="button" role="tab" aria-selected={isWorker} className={isWorker ? "selected" : ""} onClick={() => switchTab("worker")}>Datos de Trabajador</button><button type="button" role="tab" aria-selected={!isWorker} className={!isWorker ? "selected" : ""} onClick={() => switchTab("company")}>Datos de Empresa</button></div>
       <form className="editor-form profile-base-form" onSubmit={save} key={tab}>
         <div className="identity-row"><button type="button" className="avatar-picker" onClick={() => fileRef.current?.click()} aria-label={isWorker ? "Elegir avatar de trabajador" : "Elegir logo de empresa"}><span className="avatar-preview" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{photo ? null : isWorker ? "JM" : "＋"}</span><span className="camera-badge"><Camera size={15}/></span></button><input ref={fileRef} className="hidden-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage}/><div><b>{isWorker ? "Avatar predeterminado" : "Logo predeterminado"}</b><small>Se usará al crear una ficha u oferta nueva.</small></div></div>
         {isWorker ? <>
