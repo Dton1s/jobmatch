@@ -14,31 +14,12 @@ type DeckProps = {
   onSwipe: (card: DeckCard, direction: SwipeDirection) => void;
   onCreateOffer: () => void; onUndo: () => void; onShowFilters: () => void; onResetDemo: () => void;
   pausedOffer: JobOffer | null; onActivateOffer: (offer: JobOffer) => void;
-  onRecover: () => void;
   onModalOpen: () => void;
   onContactDirect: (card: DeckCard) => void;
 };
 
-export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, isPro, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer, onRecover, onModalOpen, onContactDirect }: DeckProps) {
-  const [recoveryKey, setRecoveryKey] = useState(0);
+export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, isPro, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer, onModalOpen, onContactDirect }: DeckProps) {
   const [exitDirection, setExitDirection] = useState<SwipeDirection>("right");
-  const lastRecoveryAt = useRef(0);
-  useEffect(() => {
-    const recover = () => {
-      if (document.visibilityState === "hidden") return;
-      const now = Date.now();
-      if (now - lastRecoveryAt.current < 500) return;
-      lastRecoveryAt.current = now;
-      setRecoveryKey((value) => value + 1);
-      onRecover();
-    };
-    document.addEventListener("visibilitychange", recover);
-    window.addEventListener("focus", recover);
-    return () => {
-      document.removeEventListener("visibilitychange", recover);
-      window.removeEventListener("focus", recover);
-    };
-  }, [onRecover]);
   const currentCard = cards[0];
   const needsActiveOffer = role === "company" && !offer && !loading;
   const hasActiveCard = Boolean(currentCard) && !loading && !needsActiveOffer;
@@ -54,7 +35,7 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
       {needsActiveOffer && <div className="empty-card offer-required-state"><BriefcaseBusiness size={34}/><span className="eyebrow">PUBLICA UNA OPORTUNIDAD</span><h2>Activa o crea una oferta para empezar a deslizar candidatos</h2>{pausedOffer && <button className="primary-button" onClick={() => onActivateOffer(pausedOffer)}>Activar mi oferta</button>}<button className={pausedOffer ? "quiet-button" : "primary-button"} onClick={onCreateOffer}>Crear nueva oferta</button></div>}
       {!loading && !needsActiveOffer && !currentCard && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onResetDemo}><RotateCcw size={14}/> Volver a ver perfiles de ejemplo</button>{undoAvailable && <button className="quiet-button" onClick={onUndo}><RotateCcw size={14}/> Deshacer último swipe</button>}</div>}
       <AnimatePresence initial={false} mode="sync" custom={exitDirection}>
-        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}-${recoveryKey}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} isPro={isPro} onContactDirect={onContactDirect} onSwipe={handleSwipe} onModalOpen={onModalOpen}/></motion.div>) }
+        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} isPro={isPro} onContactDirect={onContactDirect} onSwipe={handleSwipe} onModalOpen={onModalOpen}/></motion.div>) }
       </AnimatePresence>
     </div>
     {hasActiveCard && <>
@@ -84,6 +65,18 @@ function SwipeDeckCard({ role, card, active, isPro, onContactDirect, onSwipe, on
 
   useEffect(() => {
     if (active) { x.set(0); setDetailsOpen(false); setAudioPlaying(false); }
+  }, [active, x]);
+
+  useEffect(() => {
+    const resetInterruptedDrag = () => {
+      if (active && Math.abs(x.get()) > 0) x.set(0);
+    };
+    document.addEventListener("visibilitychange", resetInterruptedDrag);
+    window.addEventListener("focus", resetInterruptedDrag);
+    return () => {
+      document.removeEventListener("visibilitychange", resetInterruptedDrag);
+      window.removeEventListener("focus", resetInterruptedDrag);
+    };
   }, [active, x]);
 
   function toggleAudio() {
