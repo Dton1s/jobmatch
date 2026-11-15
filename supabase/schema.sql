@@ -361,10 +361,22 @@ where id = 'jobmatch-media';
 create policy jobmatch_media_public_read on storage.objects
 for select to authenticated using (bucket_id = 'jobmatch-media');
 create policy jobmatch_media_upload_own_folder on storage.objects
-for insert to authenticated with check (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+for insert to authenticated with check (
+  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text
+  and (coalesce(metadata->>'mimetype','') <> 'application/pdf' or (
+    lower(name) like '%/cv-%.pdf'
+    and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+  ))
+);
 create policy jobmatch_media_update_own_folder on storage.objects
 for update to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text)
-with check (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+with check (
+  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text
+  and (coalesce(metadata->>'mimetype','') <> 'application/pdf' or (
+    lower(name) like '%/cv-%.pdf'
+    and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+  ))
+);
 create policy jobmatch_media_cv_upload_own_folder on storage.objects
 for insert to authenticated with check (
   bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
