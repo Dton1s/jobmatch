@@ -39,6 +39,8 @@ export default function HomePage() {
   const [loading,setLoading] = useState(true);
   const [booting,setBooting] = useState(true);
   const [notice,setNotice] = useState("");
+  const [successToast,setSuccessToast] = useState("");
+  const successToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filtersOpen,setFiltersOpen] = useState(false);
   const [settingsOpen,setSettingsOpen] = useState(false);
   const [distance,setDistance] = useState(25);
@@ -48,6 +50,16 @@ export default function HomePage() {
   const [undo,setUndo] = useState<SwipeUndo|null>(null);
   const [stats,setStats] = useState<Stats>({views:0,likes:0,matches:0});
   const swipeInProgress = useRef(false);
+  const swipeSequence = useRef(0);
+  const [realtimeRecoveryKey,setRealtimeRecoveryKey] = useState(0);
+
+  function showSuccessToast(message:string){
+    if(successToastTimer.current)clearTimeout(successToastTimer.current);
+    setSuccessToast(message);
+    successToastTimer.current=setTimeout(()=>setSuccessToast(""),3000);
+  }
+
+  useEffect(()=>()=>{if(successToastTimer.current)clearTimeout(successToastTimer.current);},[]);
 
   const selectedOffer = offers.find((offer)=>offer.id===selectedOfferId && offer.is_active) ?? null;
 
@@ -124,7 +136,7 @@ export default function HomePage() {
       const enriched=await hydrateMatch(match);setMatches((current)=>current.some((item)=>item.id===match.id)?current:[enriched,...current]);setNewMatch(enriched);
     }).subscribe();
     return()=>{void supabase?.removeChannel(channel);};
-  },[profile,hydrateMatch]);
+  },[profile,hydrateMatch,realtimeRecoveryKey]);
 
   const loadDeck=useCallback(async()=>{
     if(!profile?.role||!supabase)return;
@@ -184,20 +196,39 @@ export default function HomePage() {
     const row={actor_id:profile.id,actor_role:profile.role,worker_card_id:company?card.id:workerCard?.id,job_offer_id:company?selectedOffer?.id:card.id,direction};
     if(!row.worker_card_id||!row.job_offer_id)return;
     swipeInProgress.current=true;
+    const operation=++swipeSequence.current;
     setUndo(null);
     setCards((current)=>current.filter((item)=>item.id!==card.id));
     try {
-      const {data,error}=await supabase.from("jobmatch_swipes").insert(row).select("id").single();
-      if(error)throw error;
-      const {data:match,error:matchError}=await supabase.from("jobmatch_matches").select("id").eq("worker_card_id",row.worker_card_id).eq("job_offer_id",row.job_offer_id).maybeSingle();
+      const {swipeId,match,matchError}=await withTimeout((async()=>{
+        const {data,error}=await supabase.from("jobmatch_swipes").upsert(row,{onConflict:"actor_id,worker_card_id,job_offer_id",ignoreDuplicates:true}).select("id").maybeSingle();
+        if(error)throw error;
+        let insertedId=data?.id;
+        if(!insertedId){const existing=await supabase.from("jobmatch_swipes").select("id").eq("actor_id",profile.id).eq("worker_card_id",row.worker_card_id!).eq("job_offer_id",row.job_offer_id!).maybeSingle();if(existing.error)throw existing.error;insertedId=existing.data?.id;}
+        if(!insertedId)throw new Error("No se pudo confirmar el swipe guardado.");
+        const matchResult=await supabase.from("jobmatch_matches").select("id").eq("worker_card_id",row.worker_card_id!).eq("job_offer_id",row.job_offer_id!).maybeSingle();
+        return {swipeId:insertedId,match:matchResult.data,matchError:matchResult.error};
+      })(),6000,"La conexión tardó demasiado. El mazo se ha desbloqueado; vuelve a intentarlo.");
+      if(operation!==swipeSequence.current)return;
       if(matchError)setNotice(matchError.message);
-      setUndo(match?null:{id:data.id,card});
+      setUndo(match?null:{id:swipeId,card});
       if(match)void loadMatches();
     } catch(cause) {
-      setCards((current)=>current.some((item)=>item.id===card.id)?current:[card,...current]);
-      setNotice(cause instanceof Error?cause.message:"No se pudo guardar el swipe. La tarjeta se ha restaurado.");
-    } finally { swipeInProgress.current=false; }
+      if(operation===swipeSequence.current){setCards((current)=>current.some((item)=>item.id===card.id)?current:[card,...current]);setNotice(cause instanceof Error?cause.message:"No se pudo guardar el swipe. La tarjeta se ha restaurado.");}
+    } finally { if(operation===swipeSequence.current)swipeInProgress.current=false; }
   }
+
+  const recoverAfterResume=useCallback(()=>{
+    swipeSequence.current+=1;swipeInProgress.current=false;
+    try{supabase?.realtime.connect();}catch(error){console.warn("JobMatch: no se pudo solicitar la reconexión de Realtime",error);}
+    setRealtimeRecoveryKey((value)=>value+1);
+    if(view==="discover")void loadDeck();
+  },[loadDeck,view]);
+
+function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:string):Promise<T>{
+  let timer:ReturnType<typeof setTimeout>;
+  return Promise.race([Promise.resolve(request),new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(message)),milliseconds);})]).finally(()=>clearTimeout(timer!));
+}
 
   async function undoLast(){
     if(!supabase||!user||!undo)return;
@@ -246,7 +277,8 @@ export default function HomePage() {
     if(error){setNotice(error.message);setLoading(false);return;}
     setSelectedOfferId(role==="company"?offers.find((offer)=>offer.is_active)?.id??"":"");
     setDistance(25);setSector("Todos los sectores");setMinSalary(0);setAvailability("Todas las disponibilidades");
-    setProfile({...profile,role});setView("discover");setActiveMatch(null);setProfileMatch(null);
+    setMatches((current)=>current.filter((match)=>role==="worker"?match.worker_id===profile.id:match.company_id===profile.id));
+    setProfile({...profile,role});setActiveMatch(null);setProfileMatch(null);
   }
   async function toggleOffer(offer:JobOffer){
     if(!supabase||!profile)return;
@@ -270,19 +302,20 @@ export default function HomePage() {
   if(!user)return <main className="auth-screen"><section className="auth-card"><a className="brand-lockup"><span className="brand-mark">j.</span> jobmatch<span className="brand-period">.</span></a><div className="auth-visual"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="center-spark">✳</div><span className="float-tag tag-one">Talento cerca</span><span className="float-tag tag-two">Trabajo real</span></div><span className="eyebrow">EMPLEO QUE EMPIEZA CERCA</span><h1>El próximo match<br/>puede ser <em>aquí.</em></h1><p>Conexiones laborales de verdad, a pocos kilómetros. Un gesto para descubrir, otro para conectar.</p>{notice&&<div className="form-error" role="alert">{notice}</div>}<button className="google-button" onClick={()=>void signIn()}><GoogleMark/> Continuar con Google</button><small className="auth-terms">Tu perfil profesional solo se comparte con usuarios registrados.</small></section><div className="auth-side-note"><Sparkles size={15}/> Hecho para el empleo local.</div></main>;
   if(!profile?.role)return <main className="role-screen"><a className="brand-lockup"><span className="brand-mark">j.</span> jobmatch<span className="brand-period">.</span></a><div className="role-copy"><span className="eyebrow">UNA APP · DOS CAMINOS</span><h1>¿Qué te trae<br/>por aquí, <em>{user.email?.split("@")[0]}?</em></h1><p>Elige cómo quieres empezar. Puedes cambiar de modo cuando lo necesites.</p></div><div className="role-cards"><button onClick={()=>void chooseRole("worker")} className="role-card worker-role"><span className="role-icon"><UserRound/></span><span className="eyebrow">BUSCO TRABAJO</span><strong>Soy trabajador/a</strong><p>Descubre ofertas con salario claro y cerca de ti.</p><span className="role-arrow">↗</span></button><button onClick={()=>void chooseRole("company")} className="role-card company-role"><span className="role-icon"><BriefcaseBusiness/></span><span className="eyebrow">BUSCO TALENTO</span><strong>Soy empresa</strong><p>Encuentra talento local y conecta sin intermediarios.</p><span className="role-arrow">↗</span></button></div>{notice&&<p className="form-error">{notice}</p>}</main>;
   const needsSetup=!profile.onboarding_complete||(profile.role==="worker"&&!workerCard);
-  if(editing||needsSetup)return <main className="editor-screen"><a className="brand-lockup"><span className="brand-mark">j.</span> jobmatch<span className="brand-period">.</span></a><CardEditor key={`${profile.role}-${selectedOfferId||"new"}`} profile={profile} existingWorker={workerCard} existingOffer={selectedOffer} offers={offers} onSelectOffer={setSelectedOfferId} onToggleOffer={(offer)=>void toggleOffer(offer)} onCancel={()=>setEditing(false)} onSaved={async()=>{setEditing(false);await loadAccount(profile.id);}}/></main>;
+  if(editing||needsSetup)return <main className="editor-screen"><a className="brand-lockup"><span className="brand-mark">j.</span> jobmatch<span className="brand-period">.</span></a><CardEditor key={`${profile.role}-${selectedOfferId||"new"}`} profile={profile} existingWorker={workerCard} existingOffer={selectedOffer} offers={offers} onSelectOffer={setSelectedOfferId} onToggleOffer={(offer)=>void toggleOffer(offer)} onCancel={()=>setEditing(false)} onSaved={async()=>{await loadAccount(profile.id);setEditing(false);showSuccessToast(profile.role==="worker"?"Perfil guardado correctamente":"Oferta guardada correctamente");}}/></main>;
   return <main className="app-shell">
     <header className="product-header"><a className="brand-lockup"><span className="brand-mark">j.</span> jobmatch<span className="brand-period">.</span></a><div className="mode-switch" role="group" aria-label="Modo de uso"><motion.span className="mode-indicator" layout transition={{type:"spring",stiffness:440,damping:33}} style={{left:profile.role==="worker"?4:"50%"}}/><button className={profile.role==="worker"?"selected":""} onClick={()=>void changeRole("worker")}><UserRound size={14}/> Trabajador</button><button className={profile.role==="company"?"selected":""} onClick={()=>void changeRole("company")}><BriefcaseBusiness size={14}/> Empresa</button></div><div className="header-tools"><button className="header-tool" onClick={()=>setFiltersOpen(true)} aria-label="Abrir filtros"><Filter size={18}/><span>Filtros</span></button><button className="profile-tool" onClick={()=>setSettingsOpen(true)} aria-label="Perfil y ajustes"><span>{profile.display_name?.slice(0,1)||"J"}</span><ChevronDown size={13}/></button></div></header>
     <div className="app-main">
-      {view==="discover"?<SwipeDeck role={profile.role} offer={selectedOffer} distance={distance} cards={cards} loading={loading} undoAvailable={Boolean(undo)} pausedOffer={offers.find((item)=>!item.is_active)??null} onActivateOffer={(offer)=>void toggleOffer(offer)} onUndo={()=>void undoLast()} onSwipe={(card,direction)=>void decide(card,direction)} onCreateOffer={()=>{setSelectedOfferId("");setEditing(true);}} onShowFilters={()=>setFiltersOpen(true)} onResetDemo={()=>void resetDemoSwipes()}/>:activeMatch?<MatchChat match={activeMatch} profile={profile} onClose={()=>setActiveMatch(null)} onActivity={refreshMatches} onViewProfile={()=>setProfileMatch(activeMatch)}/>:<MatchesView matches={matches} profile={profile} onOpen={(match)=>void markMatchRead(match)} onViewProfile={setProfileMatch}/>}
+      {view==="discover"?<SwipeDeck role={profile.role} offer={selectedOffer} distance={distance} cards={cards} loading={loading} undoAvailable={Boolean(undo)} pausedOffer={offers.find((item)=>!item.is_active)??null} onActivateOffer={(offer)=>void toggleOffer(offer)} onUndo={()=>void undoLast()} onSwipe={(card,direction)=>void decide(card,direction)} onCreateOffer={()=>{setSelectedOfferId("");setEditing(true);}} onShowFilters={()=>setFiltersOpen(true)} onResetDemo={()=>void resetDemoSwipes()} onRecover={recoverAfterResume}/>:activeMatch?<MatchChat match={activeMatch} profile={profile} onClose={()=>setActiveMatch(null)} onActivity={refreshMatches} onViewProfile={()=>setProfileMatch(activeMatch)}/>:<MatchesView matches={matches} profile={profile} onOpen={(match)=>void markMatchRead(match)} onViewProfile={setProfileMatch}/>}
     </div>
     <nav className="mobile-bottom-nav"><button className={view==="discover"?"active":""} onClick={()=>{setView("discover");setActiveMatch(null);}}><Compass/><span>Descubrir</span></button><button className={view==="matches"?"active":""} onClick={()=>{setView("matches");setActiveMatch(null);}}><MessageCircle/><span>Conexiones</span>{matches.some((match)=>match.unread)&&<i/>}</button><button onClick={()=>setSettingsOpen(true)}><UserRound/><span>Mi perfil</span></button></nav>
     <AnimatePresence>{filtersOpen&&<motion.div className="drawer-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setFiltersOpen(false)}><motion.aside className="filter-drawer" initial={{x:"100%"}} animate={{x:0}} exit={{x:"100%"}} transition={{type:"spring",damping:30,stiffness:280}} onClick={(event)=>event.stopPropagation()}><div className="drawer-heading"><div><span className="eyebrow">DESCUBRIR MEJOR</span><h2>Filtros</h2></div><button className="icon-close" onClick={()=>setFiltersOpen(false)} aria-label="Cerrar filtros"><X/></button></div><div className="distance-presets" role="group" aria-label="Rango de distancia"><button className={distance<=10?"selected":""} onClick={()=>setDistance(10)}>Cerca<small>Hasta 10 km</small></button><button className={distance>10&&distance<=25?"selected":""} onClick={()=>setDistance(25)}>Media<small>10–25 km</small></button><button className={distance>25?"selected":""} onClick={()=>setDistance(50)}>Lejos<small>Más de 25 km</small></button></div><label className="filter-control"><span>Distancia máxima <b>{distance} km</b></span><input type="range" min="1" max="50" step="1" value={distance} onChange={(event)=>setDistance(Number(event.target.value))}/><small>Afina el radio desde 1 hasta 50 km.</small></label><label className="filter-control">Sector<select value={sector} onChange={(event)=>setSector(event.target.value)}><option>Todos los sectores</option>{["Hostelería","Comercio","Logística","Atención al cliente","Limpieza","Administración","Construcción","Sanidad","Tecnología","Otro"].map((item)=><option key={item}>{item}</option>)}</select></label>{profile.role==="worker"?<label className="filter-control">Salario mínimo mensual<input type="number" min="0" step="50" value={minSalary} onChange={(event)=>setMinSalary(Number(event.target.value))} placeholder="Sin mínimo"/></label>:<label className="filter-control">Disponibilidad<select value={availability} onChange={(event)=>setAvailability(event.target.value)}><option>Todas las disponibilidades</option><option value="inmediata">Incorporación inmediata</option><option value="fines_de_semana">Fines de semana</option><option value="media_jornada">Media jornada</option><option value="completa">Jornada completa</option></select></label>}{profile.role==="worker"&&<label className="filter-control">Jornada<select value={availability} onChange={(event)=>setAvailability(event.target.value)}><option>Todas las disponibilidades</option><option>Jornada completa</option><option>Media jornada</option><option>Fines de semana</option><option>Turnos rotativos</option></select></label>}<button className="primary-button drawer-apply" onClick={()=>setFiltersOpen(false)}><SlidersHorizontal size={16}/> Ver resultados</button><button className="quiet-button drawer-clear" onClick={()=>{setDistance(25);setSector("Todos los sectores");setMinSalary(0);setAvailability("Todas las disponibilidades");}}>Limpiar filtros</button></motion.aside></motion.div>}</AnimatePresence>
     <AnimatePresence>{settingsOpen&&<motion.div className="drawer-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setSettingsOpen(false)}><motion.aside className="profile-drawer" initial={{x:"100%"}} animate={{x:0}} exit={{x:"100%"}} transition={{type:"spring",damping:30,stiffness:280}} onClick={(event)=>event.stopPropagation()}><div className="drawer-heading"><div><span className="eyebrow">TU CUENTA</span><h2>Perfil y ajustes</h2></div><button className="icon-close" onClick={()=>setSettingsOpen(false)} aria-label="Cerrar ajustes"><X/></button></div><div className="settings-identity"><span className="settings-avatar">{profile.display_name?.slice(0,1)||"J"}</span><div><b>{profile.display_name||profile.full_name||profile.company_name}</b><small>{user.email}</small></div></div><div className="stats-grid"><div><b>{stats.views}</b><span>Vistas recibidas</span></div><div><b>{stats.likes}</b><span>Likes</span></div><div><b>{stats.matches}</b><span>Matches activos</span></div></div><button className="settings-action" onClick={()=>{setSettingsOpen(false);setProfileBaseOpen(true);}}><UserRound size={17}/> Editar Perfil Base <ChevronDown size={15}/></button><button className="settings-action" onClick={()=>{setSettingsOpen(false);setEditing(true);}}><BriefcaseBusiness size={17}/> Editar ficha u oferta <ChevronDown size={15}/></button>{profile.role==="company"&&<div className="settings-offers"><span className="eyebrow">OFERTAS ACTIVAS · {offers.filter((item)=>item.is_active).length}</span>{offers.map((offer)=><div key={offer.id}><span className={`status-dot ${offer.is_active?"online":"offline"}`}/><span>{offer.position}<small>{offer.is_active?"Activa":"Pausada"}</small></span><button onClick={()=>void toggleOffer(offer)}>{offer.is_active?"Pausar":"Reactivar"}</button></div>)}<button className="text-action" onClick={()=>{setSettingsOpen(false);setSelectedOfferId("");setEditing(true);}}>+ Añadir oferta</button></div>}<button className="settings-action signout-action" onClick={()=>void signOut()}><LogOut size={17}/> Cerrar sesión</button></motion.aside></motion.div>}</AnimatePresence>
-    {profileBaseOpen&&<ProfileBaseEditor profile={profile} onClose={()=>setProfileBaseOpen(false)} onSaved={()=>{setProfileBaseOpen(false);void loadAccount(profile.id);}}/>}
+    {profileBaseOpen&&<ProfileBaseEditor profile={profile} onClose={()=>setProfileBaseOpen(false)} onSaved={(updated)=>{setProfile((current)=>current?{...current,...updated}:current);setProfileBaseOpen(false);showSuccessToast("Perfil guardado correctamente");void loadAccount(profile.id);}}/>}
     {profileMatch&&<MatchedProfileSheet profileId={profile.role==="worker"?profileMatch.company_id:profileMatch.worker_id} matchId={profileMatch.id} viewerRole={profile.role} onClose={()=>setProfileMatch(null)}/>}
     <AnimatePresence>{newMatch&&<motion.div className="match-modal-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}><motion.div className="match-modal" initial={{scale:.84,y:20}} animate={{scale:1,y:0}} exit={{scale:.92}}><span className="match-burst">✳</span><span className="eyebrow">DOS CAMINOS SE CRUZAN</span><h2>¡Hay <em>Match!</em></h2><div className="match-faces"><span>{profile.display_name?.slice(0,1)||"J"}</span><span>✳</span><span>{newMatch.other_name?.slice(0,1)||"M"}</span></div><b>{newMatch.other_name}</b><p>Match por: {newMatch.position}</p><button className="primary-button" onClick={()=>{setNewMatch(null);setView("matches");void markMatchRead(newMatch);}}><MessageCircle size={16}/> Enviar mensaje ahora</button><button className="quiet-button" onClick={()=>setNewMatch(null)}>Seguir descubriendo</button></motion.div></motion.div>}</AnimatePresence>
     {notice&&<button className="toast" onClick={()=>setNotice("")}>{notice} ×</button>}
+    <AnimatePresence>{successToast&&<motion.div className="success-toast" role="status" initial={{opacity:0,y:16,scale:.97}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:12}}><span>✓</span>{successToast}</motion.div>}</AnimatePresence>
   </main>;
 }
 

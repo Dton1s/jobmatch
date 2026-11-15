@@ -25,6 +25,8 @@ create table public.jobmatch_profiles (
   languages text[] not null default '{}',
   default_bio text not null default '',
   default_audio_url text,
+  cv_url text,
+  cv_filename text,
   company_name text not null default '',
   company_logo_url text,
   company_sector text not null default '',
@@ -65,6 +67,8 @@ create table public.jobmatch_worker_cards (
   lat double precision not null check (lat between -90 and 90),
   lng double precision not null check (lng between -180 and 180),
   intro_audio_path text,
+  cv_url text,
+  cv_filename text,
   is_active boolean not null default true,
   is_featured boolean not null default false,
   is_demo boolean not null default false,
@@ -348,8 +352,11 @@ create policy jobmatch_card_views_insert_self on public.jobmatch_card_views
 for insert to authenticated with check (viewer_id = (select auth.uid()));
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('jobmatch-media', 'jobmatch-media', true, 15728640, array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg'])
+values ('jobmatch-media', 'jobmatch-media', true, 15728640, array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg','application/pdf'])
 on conflict (id) do nothing;
+
+update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg','application/pdf']
+where id = 'jobmatch-media';
 
 create policy jobmatch_media_public_read on storage.objects
 for select to authenticated using (bucket_id = 'jobmatch-media');
@@ -358,6 +365,28 @@ for insert to authenticated with check (bucket_id = 'jobmatch-media' and (storag
 create policy jobmatch_media_update_own_folder on storage.objects
 for update to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text)
 with check (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy jobmatch_media_cv_upload_own_folder on storage.objects
+for insert to authenticated with check (
+  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
+  and (storage.foldername(name))[2] = (select auth.uid())::text and lower(name) like '%.pdf'
+  and metadata->>'mimetype' = 'application/pdf'
+  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+);
+create policy jobmatch_media_cv_update_own_folder on storage.objects
+for update to authenticated using (
+  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
+  and (storage.foldername(name))[2] = (select auth.uid())::text
+) with check (
+  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
+  and (storage.foldername(name))[2] = (select auth.uid())::text and lower(name) like '%.pdf'
+  and metadata->>'mimetype' = 'application/pdf'
+  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+);
+create policy jobmatch_media_cv_delete_own_folder on storage.objects
+for delete to authenticated using (
+  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
+  and (storage.foldername(name))[2] = (select auth.uid())::text
+);
 create policy jobmatch_media_delete_own_folder on storage.objects
 for delete to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
 

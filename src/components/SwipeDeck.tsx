@@ -12,9 +12,28 @@ type DeckProps = {
   onSwipe: (card: DeckCard, direction: SwipeDirection) => void;
   onCreateOffer: () => void; onUndo: () => void; onShowFilters: () => void; onResetDemo: () => void;
   pausedOffer: JobOffer | null; onActivateOffer: (offer: JobOffer) => void;
+  onRecover: () => void;
 };
 
-export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer }: DeckProps) {
+export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer, onRecover }: DeckProps) {
+  const [recoveryKey, setRecoveryKey] = useState(0);
+  const lastRecoveryAt = useRef(0);
+  useEffect(() => {
+    const recover = () => {
+      if (document.visibilityState === "hidden") return;
+      const now = Date.now();
+      if (now - lastRecoveryAt.current < 500) return;
+      lastRecoveryAt.current = now;
+      setRecoveryKey((value) => value + 1);
+      onRecover();
+    };
+    document.addEventListener("visibilitychange", recover);
+    window.addEventListener("focus", recover);
+    return () => {
+      document.removeEventListener("visibilitychange", recover);
+      window.removeEventListener("focus", recover);
+    };
+  }, [onRecover]);
   const currentCard = cards[0];
   const needsActiveOffer = role === "company" && !offer && !loading;
   const hasActiveCard = Boolean(currentCard) && !loading && !needsActiveOffer;
@@ -26,7 +45,7 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
       {needsActiveOffer && <div className="empty-card offer-required-state"><BriefcaseBusiness size={34}/><span className="eyebrow">PUBLICA UNA OPORTUNIDAD</span><h2>Activa o crea una oferta para empezar a deslizar candidatos</h2>{pausedOffer && <button className="primary-button" onClick={() => onActivateOffer(pausedOffer)}>Activar mi oferta</button>}<button className={pausedOffer ? "quiet-button" : "primary-button"} onClick={onCreateOffer}>Crear nueva oferta</button></div>}
       {!loading && !needsActiveOffer && !currentCard && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onResetDemo}><RotateCcw size={14}/> Volver a ver perfiles de ejemplo</button>{undoAvailable && <button className="quiet-button" onClick={onUndo}><RotateCcw size={14}/> Deshacer último swipe</button>}</div>}
       <AnimatePresence initial={false} mode="sync">
-        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <SwipeDeckCard key={item.id} role={role} card={item} active={index === 0} onSwipe={onSwipe}/>) }
+        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <SwipeDeckCard key={`${item.id}-${index === 0 ? "active" : "next"}-${recoveryKey}`} role={role} card={item} active={index === 0} onSwipe={onSwipe}/>) }
       </AnimatePresence>
     </div>
     {hasActiveCard && <>

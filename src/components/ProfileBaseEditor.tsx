@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
-import { Camera, Check, Mic, Pause, Play, Save, Square, Trash2, X } from "lucide-react";
+import { Camera, Check, LoaderCircle, Mic, Pause, Play, Save, Square, Trash2, X } from "lucide-react";
+import { CvUploadField } from "@/components/CvUploadField";
 import { supabase, type Profile } from "@/lib/supabase";
 
 type WorkerForm = {
   fullName: string; birthYear: string; city: string; experienceYears: string; hasDrivingLicense: boolean;
-  hasOwnVehicle: boolean; languages: string; defaultBio: string; defaultAudioUrl: string;
+  hasOwnVehicle: boolean; languages: string; defaultBio: string; defaultAudioUrl: string; cvUrl: string | null; cvFilename: string | null;
 };
 type CompanyForm = {
   name: string; sector: string; phone: string; showPhoneOnMatch: boolean; address: string; description: string;
@@ -27,12 +28,12 @@ function messageFromError(error: unknown) {
   return error instanceof Error ? error.message : "Error desconocido al guardar el perfil.";
 }
 
-export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Profile; onSaved: () => void; onClose: () => void }) {
+export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Profile; onSaved: (updated: Partial<Profile>) => void; onClose: () => void }) {
   const [tab, setTab] = useState<"worker" | "company">(profile.role === "company" ? "company" : "worker");
   const [workerForm, setWorkerForm] = useState<WorkerForm>({
     fullName: profile.full_name || profile.display_name || "", birthYear: profile.birth_year?.toString() ?? "", city: profile.city ?? "",
     experienceYears: String(profile.experience_years ?? 0), hasDrivingLicense: Boolean(profile.has_driving_license),
-    hasOwnVehicle: Boolean(profile.has_own_vehicle), languages: profile.languages?.join(", ") ?? "", defaultBio: profile.default_bio ?? "", defaultAudioUrl: profile.default_audio_url ?? "",
+    hasOwnVehicle: Boolean(profile.has_own_vehicle), languages: profile.languages?.join(", ") ?? "", defaultBio: profile.default_bio ?? "", defaultAudioUrl: profile.default_audio_url ?? "", cvUrl: profile.cv_url ?? null, cvFilename: profile.cv_filename ?? null,
   });
   const [companyForm, setCompanyForm] = useState<CompanyForm>({
     name: profile.company_name || profile.display_name || "", sector: profile.company_sector ?? "", phone: profile.company_phone ?? "",
@@ -99,6 +100,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
           has_driving_license: workerForm.hasDrivingLicense, has_own_vehicle: workerForm.hasOwnVehicle,
           languages: workerForm.languages.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 12),
           default_bio: workerForm.defaultBio.trim(), default_audio_url: workerForm.defaultAudioUrl || null,
+          cv_url: workerForm.cvUrl, cv_filename: workerForm.cvFilename,
           display_name: workerForm.fullName.trim(),
         };
       } else {
@@ -119,7 +121,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
         }, { onConflict: "company_id" });
         if (contactError) throw contactError;
       }
-      onSaved();
+      onSaved(values as Partial<Profile>);
     } catch (cause) {
       console.error("Perfil Base: error real al guardar en Supabase", cause);
       setError(messageFromError(cause));
@@ -138,6 +140,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
           <label>Idiomas <small>Separados por coma</small><input name="languages" value={workerForm.languages} onChange={(event)=>setWorker("languages",event.target.value)} placeholder="Español, Inglés B2"/></label>
           <div className="profile-checks"><label><input type="checkbox" checked={workerForm.hasDrivingLicense} onChange={(event)=>setWorker("hasDrivingLicense",event.target.checked)}/> Tengo carnet de conducir</label><label><input type="checkbox" checked={workerForm.hasOwnVehicle} onChange={(event)=>setWorker("hasOwnVehicle",event.target.checked)}/> Dispongo de vehículo propio</label></div>
           <label>Presentación por defecto<textarea name="default_bio" rows={4} maxLength={1200} value={workerForm.defaultBio} onChange={(event)=>setWorker("defaultBio",event.target.value)} placeholder="Experiencia, fortalezas y lo que buscas…"/></label>
+          <CvUploadField userId={profile.id} value={workerForm.cvUrl} filename={workerForm.cvFilename} onChange={(url,filename)=>{setWorker("cvUrl",url);setWorker("cvFilename",filename);}}/>
           <DefaultAudioRecorder userId={profile.id} value={workerForm.defaultAudioUrl} onChange={(value)=>setWorker("defaultAudioUrl",value)}/>
         </> : <>
           <label>Nombre comercial<input name="company_name" value={companyForm.name} onChange={(event)=>setCompany("name",event.target.value)} maxLength={120}/></label>
@@ -149,7 +152,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
         </>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <p className="form-footnote"><Check size={14}/> Los datos se guardan como valores predeterminados; puedes personalizar cada ficha u oferta.</p>
-        <button className="primary-button save-button" disabled={busy || contactLoading}><Save size={16}/>{busy ? "Guardando…" : "Guardar Perfil Base"}</button>
+        <button className="primary-button save-button" disabled={busy || contactLoading}>{busy ? <LoaderCircle className="spin" size={16}/> : <Save size={16} />}{busy ? "Guardando…" : "Guardar Perfil Base"}</button>
       </form>
     </section>
   </div>;

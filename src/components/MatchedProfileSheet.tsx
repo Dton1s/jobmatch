@@ -76,6 +76,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
           <section className="profile-detail-section"><h3><Languages size={16}/> Idiomas</h3><div className="skill-list">{(person.languages ?? []).map((language) => <span key={language}>{language}</span>)}{!person.languages?.length && <p>Sin idiomas indicados.</p>}</div></section>
           {worker?.skills?.length ? <section className="profile-detail-section"><h3>Habilidades</h3><div className="skill-list">{worker.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></section> : null}
           {(hasLicense || hasVehicle) && <section className="profile-credentials">{hasLicense && <span><ShieldCheck size={15}/> Carnet de conducir</span>}{hasVehicle && <span><CarFront size={15}/> Vehículo propio</span>}</section>}
+          {(worker?.cv_url || person.cv_url) && <a className="cv-match-link" href={worker?.cv_url || person.cv_url || undefined} target="_blank" rel="noopener noreferrer"><BriefcaseBusiness size={16}/>📄 Ver Currículum (PDF)<small>{worker?.cv_filename || person.cv_filename || "Abrir documento"}</small></a>}
           {audio && <section className="profile-detail-section"><h3><Clock3 size={16}/> Presentación de voz</h3><audio className="base-audio-preview" controls preload="none" src={audio}/></section>}
         </>}
         {error && <p className="form-footnote">{error}</p>}
@@ -89,7 +90,7 @@ function profileFromOffer(offer: JobOffer, id: string): Profile {
     id, role: "company", display_name: offer.business_name, city: offer.city, lat: offer.lat, lng: offer.lng,
     avatar_path: offer.business_image_path, onboarding_complete: true, avatar_url: offer.business_image_path,
     full_name: "", birth_year: null, experience_years: 0, has_driving_license: false, has_own_vehicle: false,
-    languages: [], default_bio: "", default_audio_url: null, company_name: offer.business_name,
+    languages: [], default_bio: "", default_audio_url: null, cv_url: null, cv_filename: null, company_name: offer.business_name,
     company_logo_url: offer.business_image_path, company_sector: offer.sector, company_address: offer.address_approx,
     company_description: offer.description, company_phone: "", show_phone_on_match: false,
   };
@@ -102,7 +103,7 @@ function profileFromWorker(worker: WorkerCard, id: string): Profile {
     full_name: worker.full_name, birth_year: worker.age ? new Date().getFullYear() - worker.age : null,
     experience_years: worker.experience_years, has_driving_license: worker.skills.some((skill) => /carnet/i.test(skill)),
     has_own_vehicle: worker.skills.some((skill) => /veh[ií]culo/i.test(skill)), languages: [], default_bio: worker.bio,
-    default_audio_url: worker.intro_audio_path, company_name: "", company_logo_url: null, company_sector: "",
+    default_audio_url: worker.intro_audio_path, cv_url: worker.cv_url, cv_filename: worker.cv_filename, company_name: "", company_logo_url: null, company_sector: "",
     company_address: "", company_description: "", company_phone: "", show_phone_on_match: false,
   };
 }

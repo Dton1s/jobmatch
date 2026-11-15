@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, MapPin, Mic, Pause, Play, Plus, Save, Square, X } from "lucide-react";
+import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, LoaderCircle, MapPin, Mic, Pause, Play, Plus, Save, Square, X } from "lucide-react";
 import { supabase, type JobOffer, type Profile, type WorkerCard } from "@/lib/supabase";
+import { CvUploadField } from "@/components/CvUploadField";
 
 const sectors = ["Hostelería", "Comercio", "Logística", "Limpieza", "Atención al cliente", "Administración", "Construcción", "Sanidad", "Tecnología", "Otro"];
 const townCenters: Record<string, [number, number]> = {
@@ -45,6 +46,8 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
   const [locationDetected, setLocationDetected] = useState(false);
   const [creatingOffer, setCreatingOffer] = useState(!existingOffer);
   const [focusedOfferId, setFocusedOfferId] = useState(existingOffer?.id ?? "");
+  const [cvUrl, setCvUrl] = useState<string | null>(existingWorker?.cv_url ?? profile.cv_url ?? null);
+  const [cvFilename, setCvFilename] = useState<string | null>(existingWorker?.cv_filename ?? profile.cv_filename ?? null);
   const avatarInput = useRef<HTMLInputElement>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -150,10 +153,10 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
           introAudio = await upload(new File([recorded], "presentacion.webm", { type: recorded.type || "audio/webm" }), profile.id, "audio");
         }
         const skills = String(data.get("skills") ?? "").split(",").map((item) => item.trim()).filter(Boolean).slice(0, 12);
-        const row = { user_id: profile.id, full_name: String(data.get("full_name")), age: Number(data.get("age")) || null, photo_path: publicImage, desired_position: String(data.get("position")), sector: String(data.get("sector")), experience_years: Number(data.get("experience")), availability: String(data.get("availability")), availability_note: String(data.get("availability_note")), skills, bio: String(data.get("bio")), city: postal ? `${city} · ${postal}` : city, lat, lng, intro_audio_path: introAudio, is_active: true };
+        const row = { user_id: profile.id, full_name: String(data.get("full_name")), age: Number(data.get("age")) || null, photo_path: publicImage, desired_position: String(data.get("position")), sector: String(data.get("sector")), experience_years: Number(data.get("experience")), availability: String(data.get("availability")), availability_note: String(data.get("availability_note")), skills, bio: String(data.get("bio")), city: postal ? `${city} · ${postal}` : city, lat, lng, intro_audio_path: introAudio, cv_url: cvUrl, cv_filename: cvFilename, is_active: true };
         const { error: saveError } = await supabase.from("jobmatch_worker_cards").upsert(row, { onConflict: "user_id" });
         if (saveError) throw saveError;
-        const { error: profileError } = await supabase.from("jobmatch_profiles").update({ display_name: row.full_name, city, lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)), avatar_path: publicImage, onboarding_complete: true }).eq("id", profile.id);
+        const { error: profileError } = await supabase.from("jobmatch_profiles").update({ display_name: row.full_name, city, lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)), avatar_path: publicImage, cv_url: cvUrl, cv_filename: cvFilename, onboarding_complete: true }).eq("id", profile.id);
         if (profileError) throw profileError;
       } else {
         const amount = parseEuroAmount(String(data.get("salary_amount") ?? ""));
@@ -191,6 +194,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
         <div className="form-two"><label>Disponibilidad<select name="availability" defaultValue={existingWorker?.availability ?? "inmediata"}><option value="inmediata">Inmediata</option><option value="fines_de_semana">Fines de semana</option><option value="media_jornada">Media jornada</option><option value="completa">Jornada completa</option></select></label><label>Cuándo puedes empezar<input name="availability_note" defaultValue={existingWorker?.availability_note ?? ""} placeholder="Esta semana, en 15 días…"/></label></div>
         <label>Habilidades <small>Separadas por coma</small><input name="skills" defaultValue={existingWorker?.skills?.join(", ") ?? [...(profile.languages ?? []), ...(profile.has_driving_license ? ["Carnet B"] : []), ...(profile.has_own_vehicle ? ["Vehículo propio"] : [])].join(", ")} placeholder="Carnet B, TPV, Inglés"/></label>
         <label>Una breve presentación<textarea name="bio" rows={3} maxLength={280} defaultValue={existingWorker?.bio ?? profile.default_bio ?? ""} placeholder="Cuéntanos qué aportas al equipo…"/></label>
+        <CvUploadField userId={profile.id} value={cvUrl} filename={cvFilename} onChange={(url,filename)=>{setCvUrl(url);setCvFilename(filename);}}/>
         <section className="recorder"><div className="recorder-copy"><span className="eyebrow">PRESENTACIÓN DE VOZ · 15 SEGUNDOS</span><p>Tu voz transmite mucho más que un CV.</p></div><div className={`audio-wave ${recording ? "recording" : ""}`} aria-hidden="true">{Array.from({length:20},(_,index)=><i key={index} style={{"--bar":`${Math.max(5,(12 + (index*17)%30)*Math.max(.15,audioLevel))}px`} as CSSProperties}/>)}</div><div className="recorder-controls">{recording ? <button type="button" className="record-button stop" onClick={stopRecording}><Square size={15} fill="currentColor"/> Parar · {15-seconds}s</button> : <button type="button" className="record-button" onClick={() => void startRecording()}><Mic size={16}/> {recorded ? "Regrabar" : "Grabar presentación"}</button>}{recordUrl ? <><audio ref={audioRef} src={recordUrl} onEnded={()=>setPlaying(false)} className="hidden-audio"/><button type="button" className="round-control" onClick={() => { if (!audioRef.current) return; if (playing) audioRef.current.pause(); else void audioRef.current.play(); setPlaying(!playing); }} aria-label={playing ? "Pausar audio" : "Escuchar audio"}>{playing ? <Pause size={16}/> : <Play size={16}/>}</button><button type="button" className="text-action" onClick={resetRecording}>Eliminar</button></> : oldIntro && <a className="text-action" href={oldIntro} target="_blank" rel="noreferrer">Escuchar audio actual</a>}</div></section>
       </> : <>
         <label>Nombre del negocio<input name="business" defaultValue={existingOffer?.business_name ?? profile.company_name ?? profile.display_name} required maxLength={100}/></label>
@@ -203,7 +207,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
       </>}
       <section className="location-card"><div className="location-card-top"><div><span className="eyebrow">UBICACIÓN Y DISTANCIA</span><p>{locationDetected ? `📍 Ubicación detectada: ${city || "zona cercana"} (radio activo)` : coordinates[0] !== null ? `📍 Ubicación guardada · ${city || "tu zona"}` : "La distancia aproxima las oportunidades cercanas."}</p></div><button type="button" className="location-button" onClick={locate}><MapPin size={15}/> Detectar mi ubicación actual</button></div><div className="form-two"><label>Ciudad<select value={city || ""} onChange={(event)=>chooseTown(event.target.value)} required><option value="">Ciudad</option>{Object.keys(townCenters).map((town)=><option key={town}>{town}</option>)}</select></label><label>Código postal<input name="postal" inputMode="numeric" maxLength={5} defaultValue={postalCode(isWorker ? existingWorker?.city : existingOffer?.city)} placeholder="03181"/></label></div></section>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="primary-button save-button" disabled={busy || recording} type="submit"><Save size={17}/>{busy ? "Guardando…" : isWorker ? "Guardar mi perfil" : existingOffer ? "Guardar oferta" : "Publicar oferta"}</button>
+      <button className="primary-button save-button" disabled={busy || recording} type="submit">{busy ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{busy ? "Guardando…" : isWorker ? "Guardar mi perfil" : existingOffer ? "Guardar oferta" : "Publicar oferta"}</button>
       {!isWorker && <p className="form-footnote"><Clock3 size={14}/> Las ofertas caducan automáticamente a los 14 días.</p>}
     </form>
   </section>;
