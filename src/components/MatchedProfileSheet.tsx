@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, MapPin, Phone, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 import { supabase, type JobOffer, type Profile, type Role, type WorkerCard } from "@/lib/supabase";
 
 export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }: { profileId: string; matchId: string; viewerRole: Role | null; onClose: () => void }) {
@@ -54,7 +55,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
   }, [profileId, matchId, isWorkerViewer]);
 
   const name = isWorkerViewer ? person?.company_name || person?.display_name : person?.full_name || worker?.full_name || person?.display_name;
-  const avatar = isWorkerViewer ? person?.company_logo_url || person?.avatar_url || person?.avatar_path : person?.avatar_url || person?.avatar_path || worker?.photo_path;
+  const avatar = isWorkerViewer ? person?.company_logo_url || offer?.business_image_path : person?.avatar_url;
   const audio = person?.default_audio_url || worker?.intro_audio_path;
   const hasLicense = Boolean(person?.has_driving_license || worker?.skills.some((skill) => /carnet/i.test(skill)));
   const hasVehicle = Boolean(person?.has_own_vehicle || worker?.skills.some((skill) => /veh[ií]culo/i.test(skill)));
@@ -63,7 +64,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
     <section className="details-sheet matched-profile-sheet" role="dialog" aria-modal="true" aria-labelledby="matched-profile-title" onClick={(event) => event.stopPropagation()}>
       <div className="sheet-handle"/><button className="sheet-close" onClick={onClose} aria-label="Cerrar perfil"><X size={18}/></button>
       {loading ? <div className="profile-sheet-loading"><span className="loader"/><p>Cargando perfil ampliado…</p></div> : error && !person ? <p className="form-error">{error}</p> : person && <>
-        <div className="matched-profile-hero"><span className="matched-profile-avatar">{avatar ? <img src={avatar} alt={`Foto de ${name || "contacto"}`}/> : name?.slice(0, 1) || "J"}</span><div className="matched-profile-heading"><span className="eyebrow">{isWorkerViewer ? "NEGOCIO CONECTADO" : "PERFIL PROFESIONAL"}</span><h2 id="matched-profile-title">{name}</h2><p>{isWorkerViewer ? `${person.company_sector || offer?.sector || "Empresa local"}${person.city ? ` · ${person.city}` : ""}` : `${worker?.desired_position || "Profesional"}${worker?.age ? ` · ${worker.age} años` : person.birth_year ? ` · ${new Date().getFullYear() - person.birth_year} años` : ""}${person.city ? ` · ${person.city}` : ""}`}</p></div></div>
+        <div className="matched-profile-hero"><Avatar className="matched-profile-avatar" src={avatar} name={name}/><div className="matched-profile-heading"><span className="eyebrow">{isWorkerViewer ? "NEGOCIO CONECTADO" : "PERFIL PROFESIONAL"}</span><h2 id="matched-profile-title">{name}</h2><p>{isWorkerViewer ? `${person.company_sector || offer?.sector || "Empresa local"}${person.city ? ` · ${person.city}` : ""}` : `${worker?.desired_position || "Profesional"}${worker?.age ? ` · ${worker.age} años` : person.birth_year ? ` · ${new Date().getFullYear() - person.birth_year} años` : ""}${person.city ? ` · ${person.city}` : ""}`}</p></div></div>
         {isWorkerViewer ? <>
           <section className="profile-detail-section"><h3><BriefcaseBusiness size={16}/> Sobre el negocio</h3><p>{person.company_description || offer?.description || "Este negocio aún no ha añadido una descripción."}</p></section>
           <section className="profile-detail-grid"><div><span>Puesto vinculado</span><b>{offer?.position || "Match laboral"}</b></div><div><span>Salario</span><b>{offer?.salary_text || "Consultar condiciones"}</b></div></section>

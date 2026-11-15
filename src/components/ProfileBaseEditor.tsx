@@ -31,12 +31,12 @@ function messageFromError(error: unknown) {
 export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Profile; onSaved: (updated: Partial<Profile>) => void; onClose: () => void }) {
   const [tab, setTab] = useState<"worker" | "company">(profile.role === "company" ? "company" : "worker");
   const [workerForm, setWorkerForm] = useState<WorkerForm>({
-    fullName: profile.full_name || profile.display_name || "", birthYear: profile.birth_year?.toString() ?? "", city: profile.city ?? "",
+    fullName: profile.full_name ?? "", birthYear: profile.birth_year?.toString() ?? "", city: profile.city ?? "",
     experienceYears: String(profile.experience_years ?? 0), hasDrivingLicense: Boolean(profile.has_driving_license),
     hasOwnVehicle: Boolean(profile.has_own_vehicle), languages: profile.languages?.join(", ") ?? "", defaultBio: profile.default_bio ?? "", defaultAudioUrl: profile.default_audio_url ?? "", cvUrl: profile.cv_url ?? null, cvFilename: profile.cv_filename ?? null,
   });
   const [companyForm, setCompanyForm] = useState<CompanyForm>({
-    name: profile.company_name || profile.display_name || "", sector: profile.company_sector ?? "", phone: profile.company_phone ?? "",
+    name: profile.company_name ?? "", sector: profile.company_sector ?? "", phone: profile.company_phone ?? "",
     showPhoneOnMatch: Boolean(profile.show_phone_on_match), address: profile.company_address ?? "", description: profile.company_description ?? "",
   });
   const [busy, setBusy] = useState(false);
