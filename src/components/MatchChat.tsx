@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, CalendarPlus, Check, CheckCheck, Clock3, MapPin, Send, Video, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarPlus, Check, CheckCheck, Clock3, MapPin, Send, Video, X } from "lucide-react";
 import { supabase, type Match, type Message, type Profile } from "@/lib/supabase";
 
 const companyReplies=["¿Cuándo podrías hacer una prueba?","¿Tienes disponibilidad inmediata?","Te llamo hoy a las…"];
@@ -73,7 +73,7 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile}:{matc
     {profile.role==="worker"&&<div className="quick-replies">{replies.map((reply)=><button key={reply} onClick={()=>void send(undefined,reply)}>{reply}</button>)}</div>}
     {error&&<p className="chat-error" role="alert">{error}<button onClick={()=>setError("")} aria-label="Cerrar aviso"><X size={13}/></button></p>}
     {inviteOpen&&<form className="interview-form" onSubmit={sendInterview}><div className="interview-form-title"><span><CalendarPlus size={17}/> {rescheduleMessage?"Proponer otra hora":"Proponer entrevista"}</span><button type="button" onClick={()=>{setInviteOpen(false);setRescheduleMessage(null);}} aria-label="Cerrar"><X size={16}/></button></div><div className="form-two"><label>Día<input type="date" min={new Date().toISOString().slice(0,10)} value={invite.date} onChange={(event)=>setInvite({...invite,date:event.target.value})} required/></label><label>Hora<input type="time" value={invite.time} onChange={(event)=>setInvite({...invite,time:event.target.value})} required/></label></div><label>Dirección o teléfono<input value={invite.place} onChange={(event)=>setInvite({...invite,place:event.target.value})} placeholder="Calle, local o teléfono" required/></label><button className="primary-button" disabled={busy}><Send size={14}/> {rescheduleMessage?"Enviar nueva hora":"Enviar propuesta"}</button></form>}
-    <div className="chat-compose"><button className="interview-launch" onClick={()=>setInviteOpen(!inviteOpen)} aria-label="Proponer entrevista"><CalendarPlus size={17}/><span>Entrevista</span></button><form onSubmit={(event)=>void send(event)}><input value={body} onChange={(event)=>setBody(event.target.value)} placeholder="Escribe un mensaje…" maxLength={2000}/><button aria-label="Enviar mensaje" disabled={busy||!body.trim()}><Send size={17}/></button></form></div>
+    <div className="chat-compose"><button className="interview-launch" onClick={()=>setInviteOpen(!inviteOpen)} aria-label="Proponer entrevista"><CalendarDays size={16}/><span>Cita</span></button><form onSubmit={(event)=>void send(event)}><input value={body} onChange={(event)=>setBody(event.target.value)} placeholder="Escribe un mensaje…" maxLength={2000}/><button aria-label="Enviar mensaje" disabled={busy||!body.trim()}><Send size={17}/></button></form></div>
   </section>;
 }
 

@@ -7,12 +7,13 @@ import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase"
 
 export type DeckCard = (WorkerCard & { distanceKm?: number; interested?: boolean }) | (JobOffer & { distanceKm?: number });
 
-export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onEdit, onCreateOffer, onUndo, onShowFilters }: {
+export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onEdit, onCreateOffer, onUndo, onShowFilters, onResetDemo }: {
   role: Role; offer: JobOffer | null; distance:number; cards: DeckCard[]; loading: boolean; undoAvailable: boolean;
   onSwipe: (card: DeckCard, direction: SwipeDirection) => void; onEdit: () => void;
-  onCreateOffer: () => void; onUndo: () => void; onShowFilters: () => void;
+  onCreateOffer: () => void; onUndo: () => void; onShowFilters: () => void; onResetDemo: () => void;
 }) {
   const card = cards[0];
+  const nextCard = cards[1];
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const x = useMotionValue(0);
@@ -40,9 +41,10 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
     <div className="deck-heading compact-deck-heading"><div className="deck-context">{isWorker?<><b>Ofertas cerca de ti</b><span>· {distance} km</span></>:<><span>Buscando:</span><b>{offer?.position??"Elige una oferta"}</b>{offer?.salary_text&&<small>{offer.salary_text}</small>}<button onClick={onCreateOffer}>Cambiar</button></>}</div><button className="deck-radius" onClick={onShowFilters} aria-label={`Cambiar radio de búsqueda, actualmente ${distance} kilómetros`}><MapPin size={14}/>{distance} km</button></div>
     <div className="deck-stack">
       {loading && <div className="deck-state"><div className="loader"/><p>Buscando buenas coincidencias cerca…</p></div>}
-      {!loading && !card && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onUndo} disabled={!undoAvailable}><RotateCcw size={14}/> Deshacer último swipe</button></div>}
+      {!loading && !card && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onResetDemo}><RotateCcw size={14}/> Volver a ver perfiles de ejemplo</button><button className="quiet-button" onClick={onUndo} disabled={!undoAvailable}><RotateCcw size={14}/> Deshacer último swipe</button></div>}
+      {nextCard && !loading && <NextCardPreview role={role} card={nextCard}/>}
       <AnimatePresence mode="popLayout">
-        {card && !loading && <motion.article key={`${role}-${card.id}`} className="swipe-card" style={{ x, rotate, touchAction: "pan-y" }} drag="x" dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.84} dragMomentum={false} onDragEnd={(_, info) => { if (info.offset.x > 105) swipe("right"); else if (info.offset.x < -105) swipe("left"); else x.set(0); }} initial={{ opacity: 0, scale: .95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ x: 390, opacity: 0, rotate: 14 }} transition={{ type: "spring", stiffness: 360, damping: 29 }}>
+        {card && !loading && <motion.article key={`${role}-${card.id}`} className="swipe-card swipe-card-current" style={{ x, rotate, zIndex: 10, touchAction: "pan-y" }} drag="x" dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.84} dragMomentum={false} onDragEnd={(_, info) => { if (info.offset.x > 105) swipe("right"); else if (info.offset.x < -105) swipe("left"); else x.set(0); }} initial={{ opacity: 0, scale: .95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ x: 390, opacity: 0, rotate: 14 }} transition={{ type: "spring", stiffness: 360, damping: 29 }}>
           <div className={`card-cover ${image ? "has-photo" : "no-photo"} sector-${sectorSlug(sector)}`} style={image ? { backgroundImage: `linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.5) 45%, transparent 100%),url(${image})` } : undefined}>
             <div className="cover-topline">{card.is_demo && <span className="demo-badge">Perfil de ejemplo</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
             <div className="sector-symbol" aria-hidden="true">{image ? sectorIcon(sector) : initials(title)}</div>
@@ -61,6 +63,19 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
     <button className="undo-caption" disabled={!undoAvailable} onClick={onUndo}>{undoAvailable ? <><RotateCcw size={12}/> Deshacer último swipe</> : "Desliza la tarjeta o toca una acción"}</button>
     <AnimatePresence>{detailsOpen && card && <motion.div className="sheet-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setDetailsOpen(false)}><motion.section className="details-sheet" initial={{y:"100%"}} animate={{y:0}} exit={{y:"100%"}} transition={{type:"spring",damping:30,stiffness:280}} onClick={(event)=>event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalles completos"><div className="sheet-handle"/><button className="sheet-close" onClick={()=>setDetailsOpen(false)} aria-label="Cerrar"><X size={18}/></button>{isWorker && job ? <OfferDetails offer={job}/> : worker && <CandidateDetails worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={toggleAudio}/>}<div className="sheet-actions"><button className="secondary-button" onClick={()=>swipe("left")}><X size={16}/> Pasar</button><button className="primary-button" onClick={()=>swipe("right")}><Heart size={16}/> Me interesa</button></div></motion.section></motion.div>}</AnimatePresence>
   </section>;
+}
+
+function NextCardPreview({role,card}:{role:Role;card:DeckCard}) {
+  const isOffer=role==="worker";
+  const image=isOffer?(card as JobOffer).business_image_path:(card as WorkerCard).photo_path;
+  const title=isOffer?(card as JobOffer).business_name:(card as WorkerCard).full_name;
+  const position=isOffer?(card as JobOffer).position:(card as WorkerCard).desired_position;
+  const sector=isOffer?(card as JobOffer).sector:(card as WorkerCard).sector;
+  return <motion.article aria-hidden="true" className="swipe-card swipe-card-next" initial={false} animate={{scale:.96,opacity:.85}} transition={{duration:.18,ease:"easeOut"}}>
+    <div className={`card-cover ${image?"has-photo":"no-photo"} sector-${sectorSlug(sector)}`} style={image?{backgroundImage:`linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.5) 45%, transparent 100%),url(${image})`}:undefined}>
+      <div className="sector-symbol" aria-hidden="true">{image?sectorIcon(sector):initials(title)}</div><div className="cover-copy"><span className="cover-sector">{sector}</span><h2>{title}</h2><p>{position}</p></div>
+    </div><div className="card-details"><h3>{position}</h3><p className="candidate-bio">{isOffer?(card as JobOffer).salary_text:(card as WorkerCard).bio}</p></div>
+  </motion.article>;
 }
 
 function OfferSummary({offer}:{offer:JobOffer}) {

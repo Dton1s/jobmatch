@@ -144,7 +144,7 @@ export function ProfileBaseEditor({ profile, onSaved, onClose }: { profile: Prof
           <div className="form-two"><label>Sector<input name="company_sector" value={companyForm.sector} onChange={(event)=>setCompany("sector",event.target.value)} placeholder="Hostelería, comercio…"/></label><label>Teléfono de contacto<input name="company_phone" type="tel" value={companyForm.phone} onChange={(event)=>setCompany("phone",event.target.value)} placeholder="+34 600 000 000"/></label></div>
           <label>Dirección del negocio<input name="company_address" value={companyForm.address} onChange={(event)=>setCompany("address",event.target.value)} placeholder="Dirección del local"/></label>
           <label>Descripción del negocio<textarea name="company_description" rows={4} maxLength={1200} value={companyForm.description} onChange={(event)=>setCompany("description",event.target.value)} placeholder="Qué hace especial a tu equipo…"/></label>
-          <label className="profile-phone-toggle"><input type="checkbox" name="show_phone_on_match" checked={companyForm.showPhoneOnMatch} onChange={(event)=>setCompany("showPhoneOnMatch",event.target.checked)}/> Mostrar mi teléfono a mis matches</label>
+          <label className="profile-phone-toggle"><span>Mostrar mi teléfono a mis matches</span><input type="checkbox" name="show_phone_on_match" checked={companyForm.showPhoneOnMatch} onChange={(event)=>setCompany("showPhoneOnMatch",event.target.checked)} aria-label="Mostrar mi teléfono a mis matches"/></label>
           {contactLoading && <p className="form-footnote">Cargando preferencias de contacto…</p>}
         </>}
         {error && <p className="form-error" role="alert">{error}</p>}

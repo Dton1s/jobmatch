@@ -24,18 +24,29 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
         isWorkerViewer ? supabase.from("jobmatch_company_contacts").select("phone").eq("company_id", profileId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (!alive) return;
-      if (profileResult.error || !profileResult.data || matchResult.error || !matchResult.data) {
-        setError("No se pudo cargar el perfil de esta conexión."); setLoading(false); return;
+      if (matchResult.error || !matchResult.data) {
+        console.error("Perfil ampliado: no se pudo leer el match", matchResult.error);
+        setError(matchResult.error?.message || "No se pudo localizar esta conexión."); setLoading(false); return;
       }
-      setPerson(profileResult.data as Profile);
-      setCompanyPhone(contactResult.data?.phone ?? "");
       const detailResult = isWorkerViewer
         ? await supabase.from("jobmatch_job_offers").select("*").eq("id", matchResult.data.job_offer_id).maybeSingle()
         : await supabase.from("jobmatch_worker_cards").select("*").eq("id", matchResult.data.worker_card_id).maybeSingle();
       if (!alive) return;
-      if (isWorkerViewer) setOffer(detailResult.data as JobOffer | null);
-      else setWorker(detailResult.data as WorkerCard | null);
-      if (detailResult.error) setError("Algunos datos de la ficha no están disponibles.");
+      const linkedOffer = isWorkerViewer ? detailResult.data as JobOffer | null : null;
+      const linkedWorker = isWorkerViewer ? null : detailResult.data as WorkerCard | null;
+      if (linkedOffer) setOffer(linkedOffer);
+      if (linkedWorker) setWorker(linkedWorker);
+      if (profileResult.error) console.error("Perfil ampliado: perfil base no disponible, usando la ficha vinculada", profileResult.error);
+      const fallback = isWorkerViewer && linkedOffer
+        ? profileFromOffer(linkedOffer, profileId)
+        : !isWorkerViewer && linkedWorker ? profileFromWorker(linkedWorker, profileId) : null;
+      if (!profileResult.data && !fallback) {
+        console.error("Perfil ampliado: ni el perfil base ni la ficha vinculada están disponibles", detailResult.error);
+        setError("No se pudo cargar la ficha vinculada a este match."); setLoading(false); return;
+      }
+      setPerson((profileResult.data as Profile | null) ?? fallback);
+      setCompanyPhone(contactResult.data?.phone ?? "");
+      if (detailResult.error && !fallback) setError("Algunos datos de la ficha no están disponibles.");
       setLoading(false);
     }
     void load();
@@ -71,4 +82,27 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
       </>}
     </section>
   </div>;
+}
+
+function profileFromOffer(offer: JobOffer, id: string): Profile {
+  return {
+    id, role: "company", display_name: offer.business_name, city: offer.city, lat: offer.lat, lng: offer.lng,
+    avatar_path: offer.business_image_path, onboarding_complete: true, avatar_url: offer.business_image_path,
+    full_name: "", birth_year: null, experience_years: 0, has_driving_license: false, has_own_vehicle: false,
+    languages: [], default_bio: "", default_audio_url: null, company_name: offer.business_name,
+    company_logo_url: offer.business_image_path, company_sector: offer.sector, company_address: offer.address_approx,
+    company_description: offer.description, company_phone: "", show_phone_on_match: false,
+  };
+}
+
+function profileFromWorker(worker: WorkerCard, id: string): Profile {
+  return {
+    id, role: "worker", display_name: worker.full_name, city: worker.city, lat: worker.lat, lng: worker.lng,
+    avatar_path: worker.photo_path, onboarding_complete: true, avatar_url: worker.photo_path,
+    full_name: worker.full_name, birth_year: worker.age ? new Date().getFullYear() - worker.age : null,
+    experience_years: worker.experience_years, has_driving_license: worker.skills.some((skill) => /carnet/i.test(skill)),
+    has_own_vehicle: worker.skills.some((skill) => /veh[ií]culo/i.test(skill)), languages: [], default_bio: worker.bio,
+    default_audio_url: worker.intro_audio_path, company_name: "", company_logo_url: null, company_sector: "",
+    company_address: "", company_description: "", company_phone: "", show_phone_on_match: false,
+  };
 }
