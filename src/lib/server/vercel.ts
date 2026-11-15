@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export type VercelApiRequest = IncomingMessage & { body?: unknown };
-export type VercelApiResponse = ServerResponse & {
-  status(code: number): VercelApiResponse;
-  json(body: unknown): VercelApiResponse;
-};
+export type VercelApiResponse = ServerResponse;
 
 export function respondJson(response: VercelApiResponse, status: number, body: unknown): void {
-  response.status(status).json(body);
+  response.statusCode = status;
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+  response.setHeader("Cache-Control", "no-store");
+  response.end(JSON.stringify(body));
 }
 
 export async function readRawBody(request: VercelApiRequest): Promise<Buffer> {
