@@ -15,6 +15,7 @@ export type Profile = {
   avatar_url: string | null; full_name: string; birth_year: number | null; experience_years: number;
   has_driving_license: boolean; has_own_vehicle: boolean; languages: string[]; default_bio: string; default_audio_url: string | null;
   company_name: string; company_logo_url: string | null; company_sector: string; company_address: string; company_description: string;
+  company_phone: string; show_phone_on_match: boolean;
 };
 export type WorkerCard = { id: string; user_id: string | null; full_name: string; age: number | null; photo_path: string | null; desired_position: string; sector: string; experience_years: number; availability: string; availability_note: string; skills: string[]; bio: string; city: string; lat: number; lng: number; intro_audio_path: string | null; is_featured: boolean; is_demo: boolean };
 export type JobOffer = { id: string; company_id: string | null; business_name: string; business_image_path: string | null; position: string; sector: string; salary_text: string; salary_amount: number | null; salary_frequency: "mensual" | "hora" | "jornada"; salary_kind: "neto" | "bruto"; salary_min: number | null; salary_max: number | null; salary_period: string; shift_type: string; schedule: string; benefits: string[]; description: string; city: string; address_approx: string; lat: number; lng: number; expires_at: string; is_active: boolean; is_demo: boolean };

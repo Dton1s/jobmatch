@@ -2,6 +2,43 @@
 -- Ejecutar después de schema.sql. Solo altera objetos jobmatch_*.
 begin;
 
+-- Perfil Base: columnas añadidas de forma compatible con datos existentes.
+alter table public.jobmatch_profiles
+  add column if not exists avatar_url text,
+  add column if not exists full_name text not null default '',
+  add column if not exists birth_year smallint,
+  add column if not exists city text not null default '',
+  add column if not exists experience_years numeric(4,1) not null default 0,
+  add column if not exists has_driving_license boolean not null default false,
+  add column if not exists has_own_vehicle boolean not null default false,
+  add column if not exists languages text[] not null default '{}',
+  add column if not exists default_bio text not null default '',
+  add column if not exists default_audio_url text,
+  add column if not exists company_name text not null default '',
+  add column if not exists company_logo_url text,
+  add column if not exists company_sector text not null default '',
+  add column if not exists company_address text not null default '',
+  add column if not exists company_description text not null default '',
+  add column if not exists company_phone text not null default '',
+  add column if not exists show_phone_on_match boolean not null default false;
+
+alter table public.jobmatch_profiles enable row level security;
+drop policy if exists jobmatch_profiles_select_authenticated on public.jobmatch_profiles;
+create policy jobmatch_profiles_select_authenticated on public.jobmatch_profiles
+for select to authenticated using (
+  id = (select auth.uid()) or exists (
+    select 1 from public.jobmatch_matches m
+    where (m.worker_id = (select auth.uid()) and m.company_id = id)
+       or (m.company_id = (select auth.uid()) and m.worker_id = id)
+  )
+);
+drop policy if exists jobmatch_profiles_insert_self on public.jobmatch_profiles;
+create policy jobmatch_profiles_insert_self on public.jobmatch_profiles
+for insert to authenticated with check (id = (select auth.uid()));
+drop policy if exists jobmatch_profiles_update_self on public.jobmatch_profiles;
+create policy jobmatch_profiles_update_self on public.jobmatch_profiles
+for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
+
 alter table public.jobmatch_worker_cards
   add column if not exists age smallint,
   add column if not exists bio text not null default '',

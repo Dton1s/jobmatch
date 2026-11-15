@@ -58,7 +58,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
           <section className="profile-detail-grid"><div><span>Puesto vinculado</span><b>{offer?.position || "Match laboral"}</b></div><div><span>Salario</span><b>{offer?.salary_text || "Consultar condiciones"}</b></div></section>
           {offer?.description && <section className="profile-detail-section"><h3>Detalles de la oferta</h3><p>{offer.description}</p><small>{offer.shift_type}{offer.schedule ? ` · ${offer.schedule}` : ""}</small></section>}
           {(person.company_address || offer?.address_approx) && <section className="profile-detail-section"><h3><MapPin size={16}/> Dirección</h3><p>{person.company_address || offer?.address_approx}{person.city ? `, ${person.city}` : ""}</p></section>}
-          {companyPhone && <a className="profile-phone-link" href={`tel:${companyPhone.replace(/[^+\d]/g, "")}`}><Phone size={16}/> Llamar al negocio · {companyPhone}</a>}
+          {person.show_phone_on_match && (companyPhone || person.company_phone) && <a className="profile-phone-link" href={`tel:${(companyPhone || person.company_phone).replace(/[^+\d]/g, "")}`}><Phone size={16}/> Llamar al negocio · {companyPhone || person.company_phone}</a>}
         </> : <>
           <section className="profile-detail-section"><h3>Presentación</h3><p>{person.default_bio || worker?.bio || "Este profesional aún no ha añadido una presentación."}</p></section>
           <section className="profile-detail-grid"><div><span>Experiencia</span><b>{worker?.experience_years ?? person.experience_years ?? 0} años</b></div><div><span>Disponibilidad</span><b>{worker?.availability_note || worker?.availability || "Consultar"}</b></div></section>

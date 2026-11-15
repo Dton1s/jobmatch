@@ -17,7 +17,9 @@ alter table public.jobmatch_profiles
   add column if not exists company_logo_url text,
   add column if not exists company_sector text not null default '',
   add column if not exists company_address text not null default '',
-  add column if not exists company_description text not null default '';
+  add column if not exists company_description text not null default '',
+  add column if not exists company_phone text not null default '',
+  add column if not exists show_phone_on_match boolean not null default false;
 
 create table if not exists public.jobmatch_company_contacts (
   company_id uuid primary key references public.jobmatch_profiles(id) on delete cascade,

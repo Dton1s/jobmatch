@@ -30,6 +30,8 @@ create table public.jobmatch_profiles (
   company_sector text not null default '',
   company_address text not null default '',
   company_description text not null default '',
+  company_phone text not null default '',
+  show_phone_on_match boolean not null default false,
   onboarding_complete boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

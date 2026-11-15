@@ -7,8 +7,8 @@ import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase"
 
 export type DeckCard = (WorkerCard & { distanceKm?: number; interested?: boolean }) | (JobOffer & { distanceKm?: number });
 
-export function SwipeDeck({ role, offer, cards, loading, undoAvailable, onSwipe, onEdit, onCreateOffer, onUndo, onShowFilters }: {
-  role: Role; offer: JobOffer | null; cards: DeckCard[]; loading: boolean; undoAvailable: boolean;
+export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onEdit, onCreateOffer, onUndo, onShowFilters }: {
+  role: Role; offer: JobOffer | null; distance:number; cards: DeckCard[]; loading: boolean; undoAvailable: boolean;
   onSwipe: (card: DeckCard, direction: SwipeDirection) => void; onEdit: () => void;
   onCreateOffer: () => void; onUndo: () => void; onShowFilters: () => void;
 }) {
@@ -27,7 +27,7 @@ export function SwipeDeck({ role, offer, cards, loading, undoAvailable, onSwipe,
   const title = isWorker ? job?.business_name : worker?.full_name;
   const sector = (isWorker ? job?.sector : worker?.sector) ?? "";
 
-  useEffect(() => { setDetailsOpen(false); setAudioPlaying(false); }, [card?.id]);
+  useEffect(() => { x.set(0); setDetailsOpen(false); setAudioPlaying(false); }, [card?.id, x]);
 
   function swipe(direction: SwipeDirection) { if (card) onSwipe(card, direction); }
   function toggleAudio() {
@@ -37,16 +37,15 @@ export function SwipeDeck({ role, offer, cards, loading, undoAvailable, onSwipe,
   }
 
   return <section className="deck-area">
-    <div className="deck-heading"><div><span className="eyebrow">{isWorker ? "OPORTUNIDADES CERCA DE TI" : "TALENTO LOCAL"}</span><h1>{isWorker ? "Trabajo que encaja" : "Personas que suman"}</h1></div>{isWorker ? <span className="deck-caption">Desliza para descubrir</span> : <button className="quiet-button" onClick={onCreateOffer}><BriefcaseBusiness size={15}/> Cambiar oferta</button>}</div>
-    {!isWorker && <div className="active-offer-strip"><span className="status-dot online"/><span>Buscando para</span><b>{offer?.position ?? "Tu oferta"}</b>{offer?.salary_text && <small>{offer.salary_text}</small>}<button onClick={onCreateOffer}>Cambiar <ChevronRight size={14}/></button></div>}
+    <div className="deck-heading compact-deck-heading"><div className="deck-context">{isWorker?<><b>Ofertas cerca de ti</b><span>· {distance} km</span></>:<><span>Buscando:</span><b>{offer?.position??"Elige una oferta"}</b>{offer?.salary_text&&<small>{offer.salary_text}</small>}<button onClick={onCreateOffer}>Cambiar</button></>}</div><button className="deck-radius" onClick={onShowFilters} aria-label={`Cambiar radio de búsqueda, actualmente ${distance} kilómetros`}><MapPin size={14}/>{distance} km</button></div>
     <div className="deck-stack">
       {loading && <div className="deck-state"><div className="loader"/><p>Buscando buenas coincidencias cerca…</p></div>}
       {!loading && !card && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onUndo} disabled={!undoAvailable}><RotateCcw size={14}/> Deshacer último swipe</button></div>}
       <AnimatePresence mode="popLayout">
-        {card && !loading && <motion.article key={card.id} className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.84} onDragEnd={(_, info) => { if (info.offset.x > 105) swipe("right"); else if (info.offset.x < -105) swipe("left"); }} initial={{ opacity: 0, scale: .95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ x: 390, opacity: 0, rotate: 14 }} transition={{ type: "spring", stiffness: 360, damping: 29 }}>
-          <div className={`card-cover sector-${sectorSlug(sector)}`} style={image ? { backgroundImage: `linear-gradient(180deg,rgba(21,23,21,.02) 24%,rgba(21,23,21,.84) 100%),url(${image})` } : undefined}>
+        {card && !loading && <motion.article key={`${role}-${card.id}`} className="swipe-card" style={{ x, rotate, touchAction: "pan-y" }} drag="x" dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.84} dragMomentum={false} onDragEnd={(_, info) => { if (info.offset.x > 105) swipe("right"); else if (info.offset.x < -105) swipe("left"); else x.set(0); }} initial={{ opacity: 0, scale: .95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ x: 390, opacity: 0, rotate: 14 }} transition={{ type: "spring", stiffness: 360, damping: 29 }}>
+          <div className={`card-cover ${image ? "has-photo" : "no-photo"} sector-${sectorSlug(sector)}`} style={image ? { backgroundImage: `linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.5) 45%, transparent 100%),url(${image})` } : undefined}>
             <div className="cover-topline">{card.is_demo && <span className="demo-badge">Perfil de ejemplo</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
-            <div className="sector-symbol" aria-hidden="true">{sectorIcon(sector)}</div>
+            <div className="sector-symbol" aria-hidden="true">{image ? sectorIcon(sector) : initials(title)}</div>
             <div className="cover-copy"><span className="cover-sector">{isWorker ? sector : worker?.city}</span><h2>{title}</h2><p>{isWorker ? job?.position : worker?.age ? `${worker.age} años · ${worker.city}` : worker?.city}</p></div>
             {worker?.interested && <div className="interest-pill">Le interesa tu oferta</div>}
             <motion.div className="swipe-stamp stamp-no" style={{ opacity: noOpacity }}>PASAR</motion.div><motion.div className="swipe-stamp stamp-yes" style={{ opacity: yesOpacity }}>ME INTERESA</motion.div>
@@ -89,3 +88,4 @@ function formatDistance(km:number){return km<1?`a ${Math.max(100,Math.round(km*1
 function availabilityLabel(value:string){return ({inmediata:"Inmediata",fines_de_semana:"Fines de semana",media_jornada:"Media jornada",completa:"Jornada completa"} as Record<string,string>)[value]??value;}
 function sectorSlug(value:string){return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z]+/g,"-");}
 function sectorIcon(value:string){if(value==="Hostelería")return "✳";if(value==="Comercio")return "◈";if(value==="Logística")return "↗";if(value==="Atención al cliente")return "◎";return "+";}
+function initials(value?:string){return value?.trim().split(/\s+/).slice(0,2).map((part)=>part[0]?.toUpperCase()).join("")||"JM";}
