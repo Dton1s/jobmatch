@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { applyStripeEvent, serviceSupabase, stripe } from "../../src/lib/server/billing";
+import { applyStripeEvent, serviceSupabase, stripe } from "../../src/lib/server/billing.js";
 
 export function GET(): Response {
   return Response.json({ error: "Método no permitido." }, { status: 405 });

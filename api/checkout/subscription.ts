@@ -1,4 +1,4 @@
-import { appBaseUrl, requireCompany, stripe } from "../../src/lib/server/billing";
+import { appBaseUrl, requireCompany, stripe } from "../../src/lib/server/billing.js";
 
 export function GET(): Response {
   return Response.json({ error: "Método no permitido." }, { status: 405 });
