@@ -20,6 +20,15 @@ export default {
       }
 
       const stripeApi = stripe();
+      const proPriceId = process.env.STRIPE_PRO_PRICE_ID?.trim();
+      if (!proPriceId || !/^price_[A-Za-z0-9]+$/.test(proPriceId)) {
+        return json({ error: "Falta configurar un STRIPE_PRO_PRICE_ID válido para JobMatch Pro." }, 503);
+      }
+      const proPrice = await stripeApi.prices.retrieve(proPriceId);
+      if (!proPrice.active || proPrice.currency !== "eur" || proPrice.unit_amount !== 1999 || proPrice.recurring?.interval !== "month" || proPrice.recurring.interval_count !== 1) {
+        return json({ error: "STRIPE_PRO_PRICE_ID debe apuntar a un precio activo de 19,99 € por mes." }, 503);
+      }
+
       const customer = existing?.stripe_customer_id
         ? await stripeApi.customers.retrieve(existing.stripe_customer_id)
         : await stripeApi.customers.create({ name: profile.company_name || "Empresa JobMatch", metadata: { company_id: profile.id } });
@@ -44,10 +53,7 @@ export default {
         client_reference_id: profile.id,
         metadata: { kind: "subscription", company_id: profile.id },
         subscription_data: { metadata: { kind: "subscription", company_id: profile.id } },
-        line_items: [{ quantity: 1, price_data: {
-          currency: "eur", unit_amount: 1999, recurring: { interval: "month" },
-          product_data: { name: "JobMatch Pro", description: "Conversaciones directas con candidatos y herramientas Pro para empresas." },
-        } }],
+        line_items: [{ quantity: 1, price: proPrice.id }],
         success_url: `${base}/?checkout=success&kind=subscription&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${base}/?checkout=cancel`,
       });

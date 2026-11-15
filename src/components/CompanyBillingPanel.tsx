@@ -19,7 +19,13 @@ export function CompanyBillingPanel({ profile, offers, onError }: { profile: Pro
       const token = data.session?.access_token;
       if (!token) throw new Error("Inicia sesión de nuevo para continuar.");
       const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const result = await response.json() as { url?: string; error?: string };
+      const responseText = await response.text();
+      let result: { url?: string; error?: string };
+      try {
+        result = JSON.parse(responseText) as { url?: string; error?: string };
+      } catch {
+        throw new Error(response.ok ? "El servidor devolvió una respuesta no válida." : `Error ${response.status}: no se pudo iniciar el pago. Inténtalo de nuevo.`);
+      }
       if (!response.ok || !result.url) throw new Error(result.error || "No se pudo abrir el pago.");
       window.location.assign(result.url);
     } catch (cause) {
