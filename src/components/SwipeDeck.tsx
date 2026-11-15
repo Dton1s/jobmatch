@@ -17,6 +17,7 @@ type DeckProps = {
 
 export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, onSwipe, onCreateOffer, onUndo, onShowFilters, onResetDemo, pausedOffer, onActivateOffer, onRecover }: DeckProps) {
   const [recoveryKey, setRecoveryKey] = useState(0);
+  const [exitDirection, setExitDirection] = useState<SwipeDirection>("right");
   const lastRecoveryAt = useRef(0);
   useEffect(() => {
     const recover = () => {
@@ -37,6 +38,10 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
   const currentCard = cards[0];
   const needsActiveOffer = role === "company" && !offer && !loading;
   const hasActiveCard = Boolean(currentCard) && !loading && !needsActiveOffer;
+  const handleSwipe = (card: DeckCard, direction: SwipeDirection) => {
+    setExitDirection(direction);
+    onSwipe(card, direction);
+  };
 
   return <section className="deck-area">
     <div className="deck-heading compact-deck-heading"><div className="deck-context">{role === "worker" ? <><b>Ofertas cerca de ti</b><span>· {distance} km</span></> : <><span>Buscando:</span><b>{offer?.position ?? "Elige una oferta"}</b>{offer?.salary_text && <small>{offer.salary_text}</small>}<button onClick={onCreateOffer}>Cambiar</button></>}</div><button className="deck-radius" onClick={onShowFilters} aria-label={`Cambiar radio de búsqueda, actualmente ${distance} kilómetros`}><MapPin size={14}/>{distance} km</button></div>
@@ -44,12 +49,12 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
       {loading && <div className="deck-state"><div className="loader"/><p>Buscando buenas coincidencias cerca…</p></div>}
       {needsActiveOffer && <div className="empty-card offer-required-state"><BriefcaseBusiness size={34}/><span className="eyebrow">PUBLICA UNA OPORTUNIDAD</span><h2>Activa o crea una oferta para empezar a deslizar candidatos</h2>{pausedOffer && <button className="primary-button" onClick={() => onActivateOffer(pausedOffer)}>Activar mi oferta</button>}<button className={pausedOffer ? "quiet-button" : "primary-button"} onClick={onCreateOffer}>Crear nueva oferta</button></div>}
       {!loading && !needsActiveOffer && !currentCard && <div className="empty-card"><div className="empty-icon">✳</div><span className="eyebrow">MAZO AL DÍA</span><h2>Ya has visto todo por ahora</h2><p>Amplía el radio o ajusta el sector para descubrir más oportunidades en tu zona.</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button><button className="quiet-button" onClick={onResetDemo}><RotateCcw size={14}/> Volver a ver perfiles de ejemplo</button>{undoAvailable && <button className="quiet-button" onClick={onUndo}><RotateCcw size={14}/> Deshacer último swipe</button>}</div>}
-      <AnimatePresence initial={false} mode="sync">
-        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <SwipeDeckCard key={`${item.id}-${index === 0 ? "active" : "next"}-${recoveryKey}`} role={role} card={item} active={index === 0} onSwipe={onSwipe}/>) }
+      <AnimatePresence initial={false} mode="sync" custom={exitDirection}>
+        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}-${recoveryKey}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} onSwipe={handleSwipe}/></motion.div>) }
       </AnimatePresence>
     </div>
     {hasActiveCard && <>
-      <div className="deck-actions"><button className="action-circle action-no" onClick={() => onSwipe(currentCard!, "left")} aria-label="Pasar"><X size={23}/></button><button className="action-circle action-undo" onClick={onUndo} disabled={!undoAvailable} aria-label="Deshacer último swipe" title="Deshacer último swipe"><RotateCcw size={17}/></button><button className="action-circle action-yes" onClick={() => onSwipe(currentCard!, "right")} aria-label="Me interesa"><Heart size={22} fill="currentColor"/></button></div>
+      <div className="deck-actions"><button className="action-circle action-no" onClick={() => handleSwipe(currentCard!, "left")} aria-label="Pasar"><X size={23}/></button><button className="action-circle action-undo" onClick={onUndo} disabled={!undoAvailable} aria-label="Deshacer último swipe" title="Deshacer último swipe"><RotateCcw size={17}/></button><button className="action-circle action-yes" onClick={() => handleSwipe(currentCard!, "right")} aria-label="Me interesa"><Heart size={22} fill="currentColor"/></button></div>
       <button className="undo-caption" disabled={!undoAvailable} onClick={onUndo}>{undoAvailable ? <><RotateCcw size={12}/> Deshacer último swipe</> : "Desliza la tarjeta o toca una acción"}</button>
     </>}
   </section>;
@@ -87,7 +92,7 @@ function SwipeDeckCard({ role, card, active, onSwipe }: { role: Role; card: Deck
   }
 
   return <>
-    <motion.article key={card.id} className={`swipe-card ${active ? "swipe-card-current" : "swipe-card-next"}`} style={{ x, rotate, scale: active ? 1 : .96, opacity: 1, backgroundColor: "#ffffff", zIndex: active ? 10 : 0, touchAction: "pan-y" }} drag={active ? "x" : false} dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} dragMomentum={false} onDragEnd={(_, info) => { if (active) finishDrag(info.offset.x); }} initial={active ? { opacity: 0, scale: .95, y: 16 } : false} animate={{ opacity: 1, scale: active ? 1 : .96, y: 0 }} exit={{ x: 390, opacity: 0, rotate: 14 }} transition={{ type: "spring", stiffness: 360, damping: 29 }}>
+    <motion.article className={`swipe-card ${active ? "swipe-card-current" : "swipe-card-next"}`} style={{ x, rotate, scale: active ? 1 : .96, opacity: 1, backgroundColor: "#ffffff", zIndex: active ? 10 : 0, touchAction: "pan-y" }} drag={active ? "x" : false} dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} dragMomentum={false} onDragEnd={(_, info) => { if (active) finishDrag(info.offset.x); }} initial={active ? { opacity: 0, scale: .95, y: 16 } : false} animate={{ opacity: 1, scale: active ? 1 : .96, y: 0 }} transition={{ type: "tween", duration: .24, ease: "easeOut" }}>
       <div className={`card-cover ${image ? "has-photo" : "no-photo"} sector-${sectorSlug(sector)}`} style={image ? { backgroundImage: `linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.5) 45%, transparent 100%),url(${image})` } : undefined}>
         <div className="cover-topline">{card.is_demo && <span className="demo-badge">Perfil de ejemplo</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
         <div className="sector-symbol" aria-hidden="true">{image ? sectorIcon(sector) : initials(title)}</div>
