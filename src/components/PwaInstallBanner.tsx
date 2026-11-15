@@ -104,6 +104,7 @@ export function PwaInstallBanner() {
             onClick={handleInstall}
             disabled={!ios && (!installPrompt || installing)}
             className="shrink-0 rounded-full bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-75 sm:px-4 sm:text-sm"
+            style={{ color: "#fff" }}
           >
             {ios ? "Cómo instalar" : installing ? "Abriendo…" : "Instalar"}
           </button>
@@ -160,6 +161,7 @@ export function PwaInstallBanner() {
               type="button"
               onClick={() => setIosGuideOpen(false)}
               className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+              style={{ color: "#fff" }}
             >
               Entendido
             </button>
