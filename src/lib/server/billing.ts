@@ -25,16 +25,16 @@ export function serviceSupabase(): SupabaseClient {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export async function requireCompany(request: Request): Promise<{ admin: SupabaseClient; profile: BillingProfile } | Response> {
-  const authorization = request.headers.get("authorization") ?? "";
+export async function requireCompany(authorizationHeader: string | null): Promise<{ admin: SupabaseClient; profile: BillingProfile } | { error: string; status: number }> {
+  const authorization = authorizationHeader ?? "";
   const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!token || !url || !anonKey) return json({ error: "Inicia sesión para continuar." }, 401);
+  if (!token || !url || !anonKey) return { error: "Inicia sesión para continuar.", status: 401 };
 
   const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: authData, error: authError } = await authClient.auth.getUser(token);
-  if (authError || !authData.user) return json({ error: "La sesión ha caducado. Vuelve a iniciar sesión." }, 401);
+  if (authError || !authData.user) return { error: "La sesión ha caducado. Vuelve a iniciar sesión.", status: 401 };
 
   const admin = serviceSupabase();
   const { data, error } = await admin.from("jobmatch_profiles")
@@ -44,13 +44,9 @@ export async function requireCompany(request: Request): Promise<{ admin: Supabas
   if (error) throw error;
   const profile = data as BillingProfile | null;
   if (!profile || profile.role !== "company" || !profile.enabled_roles?.includes("company")) {
-    return json({ error: "Activa el modo Empresa para usar la facturación de JobMatch." }, 403);
+    return { error: "Activa el modo Empresa para usar la facturación de JobMatch.", status: 403 };
   }
   return { admin, profile };
-}
-
-export function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
 export function appBaseUrl(): string {
