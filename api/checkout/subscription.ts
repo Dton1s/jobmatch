@@ -1,26 +1,18 @@
-import { appBaseUrl, requireCompany, stripe } from "../../src/lib/server/billing";
-import { respondJson, type VercelApiRequest, type VercelApiResponse } from "../../src/lib/server/vercel";
+export function GET(): Response {
+  return Response.json({ error: "Método no permitido." }, { status: 405 });
+}
 
-export default async function handler(request: VercelApiRequest, response: VercelApiResponse): Promise<void> {
-  if (request.method !== "POST") {
-    respondJson(response, 405, { error: "Método no permitido." });
-    return;
-  }
-
+export async function POST(request: Request): Promise<Response> {
   try {
-    const authorization = Array.isArray(request.headers.authorization)
-      ? request.headers.authorization[0] ?? null
-      : request.headers.authorization ?? null;
-    const authorized = await requireCompany(authorization);
+    const { appBaseUrl, requireCompany, stripe } = await import("../../src/lib/server/billing");
+    const authorized = await requireCompany(request.headers.get("authorization"));
     if ("status" in authorized) {
-      respondJson(response, authorized.status, { error: authorized.error });
-      return;
+      return Response.json({ error: authorized.error }, { status: authorized.status });
     }
 
     const profile = authorized.profile;
     if (profile.is_pro && profile.pro_expires_at && new Date(profile.pro_expires_at).getTime() > Date.now()) {
-      respondJson(response, 409, { error: "JobMatch Pro ya está activo en esta empresa." });
-      return;
+      return Response.json({ error: "JobMatch Pro ya está activo en esta empresa." }, { status: 409 });
     }
 
     const { data: existing, error: subscriptionError } = await authorized.admin.from("jobmatch_subscriptions")
@@ -28,28 +20,24 @@ export default async function handler(request: VercelApiRequest, response: Verce
       .eq("company_id", profile.id).maybeSingle();
     if (subscriptionError) throw subscriptionError;
     if (existing?.stripe_subscription_id && ["active", "trialing", "past_due", "unpaid"].includes(existing.status)) {
-      respondJson(response, 409, { error: "Ya existe una suscripción en curso. Revisa el estado de JobMatch Pro." });
-      return;
+      return Response.json({ error: "Ya existe una suscripción en curso. Revisa el estado de JobMatch Pro." }, { status: 409 });
     }
 
     const stripeApi = stripe();
     const proPriceId = process.env.STRIPE_PRO_PRICE_ID?.trim();
     if (!proPriceId || !/^price_[A-Za-z0-9]+$/.test(proPriceId)) {
-      respondJson(response, 503, { error: "Falta configurar un STRIPE_PRO_PRICE_ID válido para JobMatch Pro." });
-      return;
+      return Response.json({ error: "Falta configurar un STRIPE_PRO_PRICE_ID válido para JobMatch Pro." }, { status: 503 });
     }
     const proPrice = await stripeApi.prices.retrieve(proPriceId);
     if (!proPrice.active || proPrice.currency !== "eur" || proPrice.unit_amount !== 1999 || proPrice.recurring?.interval !== "month" || proPrice.recurring.interval_count !== 1) {
-      respondJson(response, 503, { error: "STRIPE_PRO_PRICE_ID debe apuntar a un precio activo de 19,99 € por mes." });
-      return;
+      return Response.json({ error: "STRIPE_PRO_PRICE_ID debe apuntar a un precio activo de 19,99 € por mes." }, { status: 503 });
     }
 
     const customer = existing?.stripe_customer_id
       ? await stripeApi.customers.retrieve(existing.stripe_customer_id)
       : await stripeApi.customers.create({ name: profile.company_name || "Empresa JobMatch", metadata: { company_id: profile.id } });
     if (customer.deleted) {
-      respondJson(response, 409, { error: "No se pudo reutilizar el cliente de facturación." });
-      return;
+      return Response.json({ error: "No se pudo reutilizar el cliente de facturación." }, { status: 409 });
     }
 
     const { error: saveCustomerError } = await authorized.admin.from("jobmatch_subscriptions").upsert({
@@ -76,12 +64,11 @@ export default async function handler(request: VercelApiRequest, response: Verce
       cancel_url: `${base}/?checkout=cancel`,
     });
     if (!session.url) {
-      respondJson(response, 502, { error: "Stripe no devolvió el enlace de pago." });
-      return;
+      return Response.json({ error: "Stripe no devolvió el enlace de pago." }, { status: 502 });
     }
-    respondJson(response, 200, { url: session.url });
+    return Response.json({ url: session.url });
   } catch (error) {
     console.error("JobMatch Pro checkout failed:", error);
-    respondJson(response, 500, { error: error instanceof Error ? error.message : "No se pudo iniciar el pago." });
+    return Response.json({ error: error instanceof Error ? error.message : "No se pudo iniciar el pago." }, { status: 500 });
   }
 }

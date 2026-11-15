@@ -1,14 +1,15 @@
 import Stripe from "stripe";
-import { applyStripeEvent, serviceSupabase, stripe } from "../../src/lib/server/billing";
-import { readRawBody, respondJson, type VercelApiRequest, type VercelApiResponse } from "../../src/lib/server/vercel";
 
-export const config = { api: { bodyParser: false } };
+export function GET(): Response {
+  return Response.json({ error: "Método no permitido." }, { status: 405 });
+}
 
 async function syncSubscription(eventId: string, eventType: string, subscription: Stripe.Subscription, customerId?: string | null) {
   const companyId = subscription.metadata?.company_id;
   if (!companyId) throw new Error("Stripe subscription is missing company_id metadata.");
   const periodEnd = Math.max(0, ...subscription.items.data.map((item) => item.current_period_end));
   if (!periodEnd) throw new Error("Stripe subscription has no billing period end.");
+  const { applyStripeEvent } = await import("../../src/lib/server/billing");
   await applyStripeEvent({
     eventId, eventType, mode: "subscription", companyId,
     customerId: customerId ?? (typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id),
@@ -19,37 +20,29 @@ async function syncSubscription(eventId: string, eventType: string, subscription
   });
 }
 
-export default async function handler(request: VercelApiRequest, response: VercelApiResponse): Promise<void> {
-  if (request.method !== "POST") {
-    respondJson(response, 405, { error: "Método no permitido." });
-    return;
-  }
-
-  const signature = Array.isArray(request.headers["stripe-signature"])
-    ? request.headers["stripe-signature"]?.[0]
-    : request.headers["stripe-signature"];
+export async function POST(request: Request): Promise<Response> {
+  const signature = request.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!signature || !webhookSecret) {
-    respondJson(response, 400, { error: "Webhook de Stripe no configurado." });
-    return;
+    return Response.json({ error: "Webhook de Stripe no configurado." }, { status: 400 });
   }
 
   let event: Stripe.Event;
   try {
-    event = stripe().webhooks.constructEvent(await readRawBody(request), signature, webhookSecret);
+    const { stripe } = await import("../../src/lib/server/billing");
+    event = stripe().webhooks.constructEvent(Buffer.from(await request.arrayBuffer()), signature, webhookSecret);
   } catch (error) {
     console.error("Invalid Stripe webhook signature:", error);
-    respondJson(response, 400, { error: "Firma de Stripe no válida." });
-    return;
+    return Response.json({ error: "Firma de Stripe no válida." }, { status: 400 });
   }
 
   try {
+    const { applyStripeEvent, serviceSupabase, stripe } = await import("../../src/lib/server/billing");
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.metadata?.kind === "boost") {
         if (session.payment_status !== "paid") {
-          respondJson(response, 200, { received: true });
-          return;
+          return Response.json({ received: true });
         }
         await applyStripeEvent({
           eventId: event.id, eventType: event.type, mode: "payment",
@@ -79,9 +72,9 @@ export default async function handler(request: VercelApiRequest, response: Verce
       });
       if (error) throw error;
     }
-    respondJson(response, 200, { received: true });
+    return Response.json({ received: true });
   } catch (error) {
     console.error("Stripe webhook processing failed:", error);
-    respondJson(response, 500, { error: "No se pudo procesar el evento de Stripe." });
+    return Response.json({ error: "No se pudo procesar el evento de Stripe." }, { status: 500 });
   }
 }

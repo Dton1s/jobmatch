@@ -1,27 +1,19 @@
-import { appBaseUrl, requireCompany, stripe } from "../../src/lib/server/billing";
-import { parsedBody, respondJson, type VercelApiRequest, type VercelApiResponse } from "../../src/lib/server/vercel";
+export function GET(): Response {
+  return Response.json({ error: "Método no permitido." }, { status: 405 });
+}
 
-export default async function handler(request: VercelApiRequest, response: VercelApiResponse): Promise<void> {
-  if (request.method !== "POST") {
-    respondJson(response, 405, { error: "Método no permitido." });
-    return;
-  }
-
+export async function POST(request: Request): Promise<Response> {
   try {
-    const authorization = Array.isArray(request.headers.authorization)
-      ? request.headers.authorization[0] ?? null
-      : request.headers.authorization ?? null;
-    const authorized = await requireCompany(authorization);
+    const { appBaseUrl, requireCompany, stripe } = await import("../../src/lib/server/billing");
+    const authorized = await requireCompany(request.headers.get("authorization"));
     if ("status" in authorized) {
-      respondJson(response, authorized.status, { error: authorized.error });
-      return;
+      return Response.json({ error: authorized.error }, { status: authorized.status });
     }
 
-    const body = parsedBody(request) as { offer_id?: unknown } | null;
+    const body = await request.json().catch(() => null) as { offer_id?: unknown } | null;
     const offerId = typeof body?.offer_id === "string" ? body.offer_id : "";
     if (!/^[0-9a-f-]{36}$/i.test(offerId)) {
-      respondJson(response, 400, { error: "Selecciona una oferta válida." });
-      return;
+      return Response.json({ error: "Selecciona una oferta válida." }, { status: 400 });
     }
 
     const { data: offer, error } = await authorized.admin.from("jobmatch_job_offers")
@@ -29,12 +21,10 @@ export default async function handler(request: VercelApiRequest, response: Verce
       .eq("id", offerId).eq("company_id", authorized.profile.id).maybeSingle();
     if (error) throw error;
     if (!offer || offer.is_demo || !offer.is_active || new Date(offer.expires_at).getTime() <= Date.now()) {
-      respondJson(response, 404, { error: "Solo puedes destacar una oferta propia activa y vigente." });
-      return;
+      return Response.json({ error: "Solo puedes destacar una oferta propia activa y vigente." }, { status: 404 });
     }
     if (offer.is_boosted && offer.boost_expires_at && new Date(offer.boost_expires_at).getTime() > Date.now()) {
-      respondJson(response, 409, { error: "Esta oferta ya está destacada." });
-      return;
+      return Response.json({ error: "Esta oferta ya está destacada." }, { status: 409 });
     }
 
     const base = appBaseUrl();
@@ -52,12 +42,11 @@ export default async function handler(request: VercelApiRequest, response: Verce
       cancel_url: `${base}/?checkout=cancel`,
     });
     if (!session.url) {
-      respondJson(response, 502, { error: "Stripe no devolvió el enlace de pago." });
-      return;
+      return Response.json({ error: "Stripe no devolvió el enlace de pago." }, { status: 502 });
     }
-    respondJson(response, 200, { url: session.url });
+    return Response.json({ url: session.url });
   } catch (error) {
     console.error("JobMatch Boost checkout failed:", error);
-    respondJson(response, 500, { error: error instanceof Error ? error.message : "No se pudo iniciar el pago." });
+    return Response.json({ error: error instanceof Error ? error.message : "No se pudo iniciar el pago." }, { status: 500 });
   }
 }
