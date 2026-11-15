@@ -22,7 +22,7 @@ JobMatch conecta a trabajadores y empresas de una misma zona mediante fichas pro
 - Proyecto Vercel: `jobmatch`, equipo `nebula-b346`.
 - Dominio operativo conocido: `https://jobmatch.nebuladigitalstudio.es`.
 - Dominio objetivo: `https://jobmatch.es` (la app no debe depender de él hasta que esté registrado y su DNS resuelva).
-- Supabase actual: instancia compartida con otros proyectos de Nébula. Las tablas, tipos, funciones, triggers, índices y políticas propias de la app usan el prefijo `jobmatch_`; el bucket dedicado se llama `jobmatch-media`.
+- Supabase actual: instancia compartida con otros proyectos de Nébula. Las tablas, tipos, funciones, triggers, índices y políticas propias de la app usan el prefijo `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`.
 - Suscripciones, pagos y funciones de pago como `super like` aún no están integradas.
 
 ## Cómo se usa
@@ -46,7 +46,7 @@ JobMatch conecta a trabajadores y empresas de una misma zona mediante fichas pro
 
 - El selector superior permite cambiar de identidad sin perder la pestaña abierta. **Perfil y ajustes** contiene estadísticas, ofertas, edición y cierre de sesión.
 - Los mensajes y matches se actualizan con Supabase Realtime.
-- La eliminación dentro de la app borra archivos de la carpeta del usuario en `jobmatch-media` y llama a `jobmatch_delete_my_account()` para eliminar filas relacionadas y el usuario de Auth.
+- La eliminación dentro de la app borra los archivos de la carpeta del usuario en `jobmatch-media` y `jobmatch-cvs`, y llama a `jobmatch_delete_my_account()` para eliminar filas relacionadas y el usuario de Auth.
 - `/eliminar-cuenta` ofrece además instrucciones externas para solicitar el borrado sin tener instalada la app.
 
 ## Arquitectura
@@ -112,9 +112,9 @@ Las listas de redirección de Supabase y Google son configuración externa: el b
 
 ### Storage
 
-Los avatares, logos, audios y CV se guardan en `jobmatch-media`. El navegador valida el PDF hasta 5 MB y el audio se detiene a los 15 segundos. La aplicación espera que el bucket exista y las políticas que correspondan a la versión desplegada estén aplicadas.
+Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura pública y restringe las escrituras a la carpeta del usuario autenticado. Los currículums se guardan en el bucket privado `jobmatch-cvs`, con límite de 5 MB y solo PDF. `supabase/private_cvs_storage.sql` crea el bucket y aplica políticas estrictas: el titular puede leer su CV y otros usuarios solo pueden leerlo si existe un match confirmado. La app genera una URL firmada con vigencia de 5 minutos al abrir el documento. No se guardan nuevas URLs públicas.
 
-> **Pendiente de seguridad antes de publicar CV reales:** `schema.sql` crea `jobmatch-media` como bucket público y `fix_storage_all.sql` permite lectura a cualquier usuario autenticado del bucket. Los enlaces de CV creados con `getPublicUrl()` son accesibles para cualquiera que tenga el enlace; no equivalen a acceso privado solo para matches. Antes de admitir currículums reales en producción, cambia el diseño a objetos privados y URLs firmadas/autorizadas, o retira los CV hasta desplegar ese cambio. No amplíes esta política a otros buckets.
+**Estado de seguridad:** el flujo nuevo está protegido. Antes de desplegar la app, ejecuta `supabase/private_cvs_storage.sql` en el SQL Editor del proyecto Supabase. Los archivos PDF históricos que aún estén en el bucket público `jobmatch-media` siguen siendo accesibles públicamente hasta migrarlos a `jobmatch-cvs` y borrar los originales. La app conserva compatibilidad temporal al firmar las referencias antiguas, pero esa compatibilidad no vuelve privados los objetos antiguos.
 
 ## Variables de entorno
 
@@ -161,7 +161,7 @@ En Android Studio genera y firma un Android App Bundle (`.aab`) para Play Consol
 - La base compartida exige mantener el prefijo `jobmatch_` en tablas, funciones, triggers, índices y políticas. No renombres ni modifiques objetos de otros proyectos.
 - Google OAuth usa el correo como identidad; no se debe mostrar a otros usuarios como contacto.
 - Los perfiles ampliados y el teléfono comercial están condicionados por matches y preferencias, mediante RLS y la interfaz.
-- La solicitud de borrado in-app borra la carpeta cuyo primer nivel es el UUID de usuario antes de llamar al RPC. Revisa que las rutas futuras de Storage sigan dentro de esa carpeta.
+- La solicitud de borrado in-app borra los objetos bajo el UUID del usuario en ambos buckets antes de llamar al RPC. Las antiguas rutas de CV `cv/<user-id>/...` también deben limpiarse durante la migración de archivos históricos.
 - El aviso de privacidad y los términos nombran `jobmatch.es` y `@jobmatch.es`. Antes de usar el dominio, registra y configura el dominio y crea/verifica esos buzones o reenvíos; comprueba que las solicitudes de privacidad y eliminación llegan a una persona responsable.
 - La auditoría de código no verifica el estado real de las políticas, OAuth, Realtime, bucket o funciones en el proyecto Supabase. Contrasta esos ajustes con los scripts y realiza un inicio, match, chat, subida y borrado controlados en un entorno de prueba.
 
@@ -186,7 +186,7 @@ La migración es un cambio de identidad de backend, no basta con cambiar las dos
 2. Ejecuta `supabase/schema.sql` y `supabase/legal_and_delete_account.sql` en el proyecto nuevo. Revisa todas las políticas RLS, el bucket, MIME/tamaño, extensiones necesarias y Realtime. No incluyas secretos en el repositorio.
 3. Configura Google OAuth, URLs de retorno web y `es.nebuladigitalstudio.jobmatch://auth/callback`. Añade el dominio nuevo cuando ya exista.
 4. Haz copia de seguridad de todos los objetos `jobmatch_*`, datos relacionados, usuarios de Supabase Auth que correspondan y archivos de `jobmatch-media`. Migra usuarios preservando sus UUID para conservar las relaciones; si no se pueden preservar, prepara un proceso de reautenticación y reasociación antes del cambio.
-5. Copia Storage conservando las rutas que contienen el UUID del usuario. Comprueba que las URLs guardadas siguen siendo válidas o regenera las referencias. No migres filas de Nebula Games ni de otros productos.
+5. Copia `jobmatch-media` y `jobmatch-cvs` conservando las rutas que contienen el UUID del usuario. En el proyecto destino aplica `supabase/private_cvs_storage.sql` y verifica que el bucket de CV siga privado. Comprueba las referencias firmadas; no migres filas de Nebula Games ni de otros productos.
 6. Ejecuta verificaciones de conteo y relaciones en la copia, y prueba con cuentas de trabajador y empresa: perfil, oferta, upload, swipe mutuo, chat, propuesta, lectura de PDF y borrado.
 7. Actualiza `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en Vercel en todos los entornos; despliega primero Preview y luego Production. Sincroniza `.env.local` y compila de nuevo la APK con el proyecto nuevo.
 8. Conserva backups verificables y acceso de solo lectura al proyecto compartido hasta confirmar la estabilidad de producción. Después retira los secretos antiguos de Vercel y define el plan de apagado con el propietario de Nebula Games.
@@ -198,6 +198,6 @@ Una instancia propia separa el riesgo operativo de otros productos y facilita de
 - **No se conecta a Supabase:** comprueba las dos variables `NEXT_PUBLIC_*`, reinicia el servidor de desarrollo y verifica que la clave sea la pública anon/publishable, no la service role.
 - **Google vuelve a una página de error:** revisa las URLs permitidas de Supabase, la URL de callback que muestra Supabase en Google Cloud y que el `redirectTo` coincida exactamente.
 - **Android no abre el callback:** comprueba el intent filter, el esquema/host/path, el registro de URL en Supabase y el listener `appUrlOpen`; recompila e instala la app después de cambios nativos.
-- **Storage devuelve error RLS:** revisa bucket `jobmatch-media`, el primer segmento del path (`<user-id>/...`), el MIME, el límite configurado y las políticas específicas. No apliques políticas globales sin verificar su alcance.
+- **Storage devuelve error RLS al subir CV:** comprueba que `supabase/private_cvs_storage.sql` se ejecutó, que el bucket es privado y que el path empieza por `<user-id>/cv-...pdf`. Para imágenes/audio, comprueba `jobmatch-media` y sus políticas de propietario.
 - **No aparece Realtime:** habilita `jobmatch_matches` y `jobmatch_messages` en la publicación de Realtime del proyecto correcto.
 - **No funciona el dominio nuevo:** primero valida DNS y TLS en Vercel. Un alias configurado no garantiza que el dominio esté registrado o que ya resuelva públicamente.

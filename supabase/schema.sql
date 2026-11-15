@@ -352,55 +352,64 @@ create policy jobmatch_card_views_insert_self on public.jobmatch_card_views
 for insert to authenticated with check (viewer_id = (select auth.uid()));
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('jobmatch-media', 'jobmatch-media', true, 15728640, array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg','application/pdf'])
-on conflict (id) do nothing;
+values ('jobmatch-media', 'jobmatch-media', true, 15728640, array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg'])
+on conflict (id) do update set public = true, file_size_limit = 15728640,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg'];
 
-update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg','application/pdf']
+update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/webm','audio/mp4','audio/mpeg','audio/ogg']
 where id = 'jobmatch-media';
 
 create policy jobmatch_media_public_read on storage.objects
-for select to authenticated using (bucket_id = 'jobmatch-media');
+for select to public using (bucket_id = 'jobmatch-media');
 create policy jobmatch_media_upload_own_folder on storage.objects
 for insert to authenticated with check (
   bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text
-  and (coalesce(metadata->>'mimetype','') <> 'application/pdf' or (
-    lower(name) like '%/cv-%.pdf'
-    and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
-  ))
+  and coalesce(metadata->>'mimetype','') <> 'application/pdf'
 );
 create policy jobmatch_media_update_own_folder on storage.objects
 for update to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text)
 with check (
   bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text
-  and (coalesce(metadata->>'mimetype','') <> 'application/pdf' or (
-    lower(name) like '%/cv-%.pdf'
-    and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
-  ))
-);
-create policy jobmatch_media_cv_upload_own_folder on storage.objects
-for insert to authenticated with check (
-  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
-  and (storage.foldername(name))[2] = (select auth.uid())::text and lower(name) like '%.pdf'
-  and metadata->>'mimetype' = 'application/pdf'
-  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
-);
-create policy jobmatch_media_cv_update_own_folder on storage.objects
-for update to authenticated using (
-  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
-  and (storage.foldername(name))[2] = (select auth.uid())::text
-) with check (
-  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
-  and (storage.foldername(name))[2] = (select auth.uid())::text and lower(name) like '%.pdf'
-  and metadata->>'mimetype' = 'application/pdf'
-  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
-);
-create policy jobmatch_media_cv_delete_own_folder on storage.objects
-for delete to authenticated using (
-  bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = 'cv'
-  and (storage.foldername(name))[2] = (select auth.uid())::text
+  and coalesce(metadata->>'mimetype','') <> 'application/pdf'
 );
 create policy jobmatch_media_delete_own_folder on storage.objects
 for delete to authenticated using (bucket_id = 'jobmatch-media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('jobmatch-cvs', 'jobmatch-cvs', false, 5242880, array['application/pdf'])
+on conflict (id) do update set public = false, file_size_limit = 5242880,
+  allowed_mime_types = array['application/pdf'];
+
+create policy jobmatch_cvs_select_owner_or_match on storage.objects
+for select to authenticated using (
+  bucket_id = 'jobmatch-cvs' and (
+    (storage.foldername(name))[1] = (select auth.uid())::text
+    or exists (
+      select 1 from public.jobmatch_matches m
+      where coalesce(to_jsonb(m)->>'status', 'matched') = 'matched'
+        and ((m.worker_id = (select auth.uid()) and m.company_id::text = (storage.foldername(name))[1])
+          or (m.company_id = (select auth.uid()) and m.worker_id::text = (storage.foldername(name))[1]))
+    )
+  )
+);
+create policy jobmatch_cvs_insert_own_folder on storage.objects
+for insert to authenticated with check (
+  bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
+  and lower(name) like '%.pdf' and metadata->>'mimetype' = 'application/pdf'
+  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+);
+create policy jobmatch_cvs_update_own_folder on storage.objects
+for update to authenticated using (
+  bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
+) with check (
+  bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
+  and lower(name) like '%.pdf' and metadata->>'mimetype' = 'application/pdf'
+  and case when (metadata->>'size') ~ '^[0-9]+$' then (metadata->>'size')::bigint <= 5242880 else false end
+);
+create policy jobmatch_cvs_delete_own_folder on storage.objects
+for delete to authenticated using (
+  bucket_id = 'jobmatch-cvs' and (storage.foldername(name))[1] = (select auth.uid())::text
+);
 
 do $$ begin
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'jobmatch_matches') then

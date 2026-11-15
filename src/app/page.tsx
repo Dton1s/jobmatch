@@ -323,21 +323,23 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
     if(!supabase||!profile||deleteAccountBusy)return;
     setDeleteAccountBusy(true);setDeleteAccountError("");
     try{
-      const storage=supabase.storage.from("jobmatch-media");
-      const files:string[]=[];
-      async function collect(folder:string,depth=0):Promise<void>{
-        if(depth>8)throw new Error("La carpeta de archivos tiene una estructura inesperada.");
-        const {data,error}=await storage.list(folder,{limit:1000,offset:0});
-        if(error)throw error;
-        for(const item of data??[]){
-          const path=`${folder}/${item.name}`;
-          if(item.id===null)await collect(path,depth+1);else files.push(path);
+      for(const bucketName of ["jobmatch-media","jobmatch-cvs"]){
+        const storage=supabase.storage.from(bucketName);
+        const files:string[]=[];
+        async function collect(folder:string,depth=0):Promise<void>{
+          if(depth>8)throw new Error("La carpeta de archivos tiene una estructura inesperada.");
+          const {data,error}=await storage.list(folder,{limit:1000,offset:0});
+          if(error)throw error;
+          for(const item of data??[]){
+            const path=`${folder}/${item.name}`;
+            if(item.id===null)await collect(path,depth+1);else files.push(path);
+          }
         }
-      }
-      await collect(profile.id);
-      for(let index=0;index<files.length;index+=100){
-        const {error}=await storage.remove(files.slice(index,index+100));
-        if(error)throw error;
+        await collect(profile.id);
+        for(let index=0;index<files.length;index+=100){
+          const {error}=await storage.remove(files.slice(index,index+100));
+          if(error)throw error;
+        }
       }
       const {error:deleteError}=await supabase.rpc("jobmatch_delete_my_account");
       if(deleteError)throw deleteError;

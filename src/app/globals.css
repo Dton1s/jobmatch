@@ -101,3 +101,6 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .interview-form-title .close-control{position:static;top:auto;right:auto;background-color:#f1f5f9}
 .interview-form-title .close-control:hover{background-color:#e2e8f0}
 @media(max-width:700px){.deck-details-header .sheet-close{top:calc(14px + env(safe-area-inset-top));right:15px}}
+.cv-view-link{display:inline-flex;align-items:center;gap:5px;padding:0;border:0;background:transparent;color:#647f27;font:inherit;text-decoration:underline;cursor:pointer}
+.cv-view-link:disabled,.cv-match-link:disabled{cursor:wait;opacity:.65}
+.cv-match-link{width:100%;text-align:left;cursor:pointer}

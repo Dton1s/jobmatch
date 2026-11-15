@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, MapPin, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, LoaderCircle, MapPin, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import { CloseButton } from "@/components/CloseButton";
 import { Avatar } from "@/components/Avatar";
+import { openCvReference } from "@/lib/cv-storage";
 import { supabase, type JobOffer, type Profile, type Role, type WorkerCard } from "@/lib/supabase";
 
 export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }: { profileId: string; matchId: string; viewerRole: Role | null; onClose: () => void }) {
@@ -13,6 +14,8 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
   const [companyPhone, setCompanyPhone] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cvOpening, setCvOpening] = useState(false);
+  const [cvError, setCvError] = useState("");
   const isWorkerViewer = viewerRole === "worker";
 
   useEffect(() => {
@@ -60,6 +63,15 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
   const audio = person?.default_audio_url || worker?.intro_audio_path;
   const hasLicense = Boolean(person?.has_driving_license || worker?.skills.some((skill) => /carnet/i.test(skill)));
   const hasVehicle = Boolean(person?.has_own_vehicle || worker?.skills.some((skill) => /veh[ií]culo/i.test(skill)));
+  const cvReference = worker?.cv_url || person?.cv_url;
+
+  async function openCv() {
+    if (!cvReference || !worker?.user_id || cvOpening) return;
+    setCvOpening(true); setCvError("");
+    try { await openCvReference(cvReference, worker.user_id); }
+    catch (cause) { setCvError(cause instanceof Error ? cause.message : "No se pudo abrir el currículum."); }
+    finally { setCvOpening(false); }
+  }
 
   return <div className="sheet-backdrop profile-sheet-backdrop" onClick={onClose}>
     <section className="details-sheet matched-profile-sheet" role="dialog" aria-modal="true" aria-labelledby="matched-profile-title" onClick={(event) => event.stopPropagation()}>
@@ -78,7 +90,8 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
           <section className="profile-detail-section"><h3><span className="profile-icon-chip"><Languages className="profile-detail-icon" size={16}/></span> Idiomas</h3><div className="skill-list">{(person.languages ?? []).map((language) => <span key={language}>{language}</span>)}{!person.languages?.length && <p>Sin idiomas indicados.</p>}</div></section>
           {worker?.skills?.length ? <section className="profile-detail-section"><h3><span className="profile-icon-chip"><Sparkles className="profile-detail-icon" size={16}/></span> Habilidades</h3><div className="skill-list">{worker.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></section> : null}
           {(hasLicense || hasVehicle) && <section className="profile-credentials">{hasLicense && <span><ShieldCheck size={15}/> Carnet de conducir</span>}{hasVehicle && <span><CarFront size={15}/> Vehículo propio</span>}</section>}
-          {(worker?.cv_url || person.cv_url) && <a className="cv-match-link" href={worker?.cv_url || person.cv_url || undefined} target="_blank" rel="noopener noreferrer"><BriefcaseBusiness size={16}/>📄 Ver Currículum (PDF)<small>{worker?.cv_filename || person.cv_filename || "Abrir documento"}</small></a>}
+          {!isWorkerViewer && cvReference && worker?.user_id && <button type="button" className="cv-match-link" onClick={()=>void openCv()} disabled={cvOpening}>{cvOpening?<LoaderCircle className="spin" size={16}/>:<BriefcaseBusiness size={16}/>}📄 {cvOpening?"Preparando PDF…":"Ver Currículum (PDF)"}<small>{worker?.cv_filename || person.cv_filename || "Abrir documento · enlace temporal de 5 minutos"}</small></button>}
+          {cvError&&<p className="form-error" role="alert">{cvError}</p>}
           {audio && <section className="profile-detail-section"><h3><Clock3 size={16}/> Presentación de voz</h3><audio className="base-audio-preview" controls preload="none" src={audio}/></section>}
         </>}
         {error && <p className="form-footnote">{error}</p>}
