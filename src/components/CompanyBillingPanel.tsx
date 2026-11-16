@@ -36,10 +36,10 @@ export function CompanyBillingPanel({ profile, offers, onError }: { profile: Pro
 
   return <section className="billing-panel">
     <div className="billing-pro-card">
-      <div className="billing-card-heading"><span className="billing-icon"><Crown size={18}/></span><div><b>JobMatch Pro</b><small>19,99 €/mes</small></div><span className={`billing-status ${activePro ? "active" : "inactive"}`}>{activePro ? <><BadgeCheck size={13}/> Activa</> : "Inactiva"}</span></div>
+      <div className="billing-card-heading"><span className="billing-icon"><Crown size={18}/></span><div><b>Job Match Pro</b><small>19,99 €/mes</small></div><span className={`billing-status ${activePro ? "active" : "inactive"}`}>{activePro ? <><BadgeCheck size={13}/> Activa</> : "Inactiva"}</span></div>
       <p>Inicia conversaciones directas con candidatos y accede a herramientas Pro para tu empresa.</p>
       {activePro && <small className="billing-expiry">Renovación / fin del periodo: {new Date(profile.pro_expires_at!).toLocaleDateString("es-ES")}</small>}
-      {!native && !activePro && <button className="billing-primary" disabled={Boolean(busy)} onClick={() => void checkout("/api/checkout/subscription", {}, "pro")}><Sparkles size={15}/>{busy === "pro" ? "Abriendo pago…" : "Activar JobMatch Pro"}</button>}
+      {!native && !activePro && <button className="billing-primary" disabled={Boolean(busy)} onClick={() => void checkout("/api/checkout/subscription", {}, "pro")}><Sparkles size={15}/>{busy === "pro" ? "Abriendo pago…" : "Activar Job Match Pro"}</button>}
       {native && !activePro && <small className="billing-expiry">Las compras dentro de Android estarán disponibles al integrar Google Play Billing.</small>}
     </div>
     {!native && offers.filter((offer) => offer.company_id === profile.id && offer.is_active && !offer.is_demo && new Date(offer.expires_at).getTime() > Date.now()).map((offer) => {

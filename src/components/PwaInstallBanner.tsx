@@ -91,13 +91,13 @@ export function PwaInstallBanner() {
 
   return (
     <>
-      <aside className="relative z-[60] border-b border-slate-200/80 bg-white px-3 py-2.5 shadow-sm sm:px-5" aria-label="Instalar JobMatch">
+      <aside className="relative z-[60] border-b border-slate-200/80 bg-white px-3 py-2.5 shadow-sm sm:px-5" aria-label="Instalar Job Match">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
             <Smartphone className="h-4 w-4" aria-hidden="true" />
           </span>
           <p className="min-w-0 flex-1 text-xs font-medium leading-5 text-slate-700 sm:text-sm">
-            Instala JobMatch para un acceso más rápido
+            Instala Job Match para un acceso más rápido
           </p>
           <button
             type="button"
@@ -141,7 +141,7 @@ export function PwaInstallBanner() {
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <h2 id="pwa-ios-guide-title" className="mt-4 text-lg font-bold text-slate-900">Añade JobMatch a tu pantalla de inicio</h2>
+            <h2 id="pwa-ios-guide-title" className="mt-4 text-lg font-bold text-slate-900">Añade Job Match a tu pantalla de inicio</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Pulsa el botón de compartir de Safari ⎋ y selecciona &apos;Añadir a la pantalla de inicio&apos;.
             </p>

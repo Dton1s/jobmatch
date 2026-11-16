@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /perfil
+Disallow: /chat
+Disallow: /descubrir
+Disallow: /ajustes
+
+Sitemap: https://job-match.es/sitemap.xml

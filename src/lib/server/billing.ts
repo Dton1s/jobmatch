@@ -50,7 +50,7 @@ export async function requireCompany(authorizationHeader: string | null): Promis
 }
 
 export function appBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://jobmatch.nebuladigitalstudio.es";
+  const raw = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://job-match.es";
   const parsed = new URL(raw);
   if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") throw new Error("NEXT_PUBLIC_APP_URL debe usar HTTPS.");
   return parsed.origin;

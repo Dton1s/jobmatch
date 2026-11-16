@@ -3,12 +3,12 @@ import "./globals.css";
 import { PwaInstallBanner } from "@/components/PwaInstallBanner";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://jobmatch.nebuladigitalstudio.es"),
-  title: { default: "JobMatch · Empleo cerca de ti", template: "%s" },
-  description: "Encuentra trabajo cerca de ti o conecta con talento local. Desliza, conecta y habla directamente.",
+  metadataBase: new URL("https://job-match.es"),
+  title: { default: "Job Match · Trabajo y Empleo", template: "%s" },
+  description: "Encuentra empleo que encaja contigo o conecta con candidatos para tus ofertas.",
   alternates: { canonical: "/" },
-  openGraph: { type: "website", url: "https://jobmatch.nebuladigitalstudio.es/", siteName: "JobMatch", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
-  twitter: { card: "summary", title: "JobMatch · Empleo cerca de ti", description: "Conecta con oportunidades de empleo y talento local." },
+  openGraph: { type: "website", url: "https://job-match.es/", siteName: "Job Match", title: "Job Match · Trabajo y Empleo", description: "Encuentra empleo que encaja contigo o conecta con candidatos para tus ofertas." },
+  twitter: { card: "summary", title: "Job Match · Trabajo y Empleo", description: "Encuentra empleo que encaja contigo o conecta con candidatos para tus ofertas." },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "JobMatch" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Job Match" },
 };
 export const viewport: Viewport = { themeColor: "#f8f7f4", width: "device-width", initialScale: 1, viewportFit: "cover" };
 

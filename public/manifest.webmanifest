@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "JobMatch",
-  "short_name": "JobMatch",
-  "description": "Encuentra trabajo o conecta con talento desde JobMatch.",
+  "name": "Job Match - Trabajo y Empleo",
+  "short_name": "Job Match",
+  "description": "Encuentra empleo o conecta con talento desde Job Match.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
