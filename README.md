@@ -150,9 +150,10 @@ Los scripts SQL pertenecen a esta app:
 - `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
 - `supabase/upgrade_monetization.sql`: columnas de Boost y Pro, historial idempotente de eventos Stripe, protección de campos de pago y RPC para contacto directo Pro. Aplícalo una vez en el SQL Editor del proyecto antes de habilitar cobros.
 - `supabase/free_offer_limit.sql`: aplica el máximo de tres ofertas activas en el plan gratuito y deja ilimitadas las empresas con Pro vigente. Ejecútalo en el SQL Editor de Supabase.
-- `supabase/remove_demo_data.sql`: elimina exclusivamente filas marcadas `is_demo=true` y sus relaciones dependientes. Revísalo y ejecútalo en Supabase si hay datos de demostración antiguos.
+- `supabase/seed_demo.sql`: carga opcional de 50 perfiles y 50 ofertas ficticios, con IDs deterministas para que se pueda volver a ejecutar. Las fichas usan nombres genéricos de muestra, avatares ilustrados y avisos visibles; no representan personas o negocios reales. Lánzalo manualmente en Supabase solo cuando se quiera probar la experiencia con contenido de muestra.
+- `supabase/remove_demo_data.sql`: elimina exclusivamente filas marcadas `is_demo=true` y sus relaciones dependientes. Ejecútalo cuando ya no se necesite el contenido de muestra.
 
-Para una base nueva, ejecuta `schema.sql` y las migraciones incrementales aplicables, incluidas `legal_and_delete_account.sql` y `free_offer_limit.sql`. No se mantienen semillas ficticias para producción. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
+Para una base nueva, ejecuta `schema.sql` y las migraciones incrementales aplicables, incluidas `legal_and_delete_account.sql` y `free_offer_limit.sql`. El seed es opcional y no se aplica en despliegues nuevos automáticamente. Las fichas de muestra aparecen identificadas en el mazo, no registran vistas ni swipes, y no pueden crear matches ni chats. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
 
 Antes de desplegar el modo de rol único/dual en una base existente, ejecuta `supabase/upgrade_role_modes.sql` al final de las migraciones anteriores. Añade `enabled_roles`, conserva el rol principal existente y aplica RLS para que las fichas y ofertas solo sean visibles en descubrimiento mientras su modo está habilitado.
 

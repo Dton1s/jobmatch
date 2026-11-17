@@ -205,11 +205,11 @@ export default function HomePage() {
         const rows=[...(boostedRows??[]),...(regularRows??[])];
         const seen=new Set((prior??[]).map((row)=>row.worker_card_id)), interested=new Set((interests??[]).map((row)=>row.worker_card_id));
         const centerLat=profile.lat??offer.lat,centerLng=profile.lng??offer.lng;
-        const candidates=((rows??[]) as WorkerCard[]).filter((item)=>!item.is_demo&&item.user_id!==profile.id&&!seen.has(item.id)).map((item)=>({...item,distanceKm:distanceKm(centerLat,centerLng,item.lat,item.lng),interested:interested.has(item.id)})).filter((item)=>item.distanceKm!<=distance&&(sector==="Todos los sectores"||item.sector===sector)&&(availability==="Todas las disponibilidades"||item.availability===availability));
-        candidates.sort((a,b)=>Number(Boolean(b.is_boosted&&b.boost_expires_at&&new Date(b.boost_expires_at).getTime()>Date.now()))-Number(Boolean(a.is_boosted&&a.boost_expires_at&&new Date(a.boost_expires_at).getTime()>Date.now()))||Number(b.is_featured)-Number(a.is_featured)||a.distanceKm!-b.distanceKm!);
+        const candidates=((rows??[]) as WorkerCard[]).filter((item)=>item.user_id!==profile.id&&!seen.has(item.id)).map((item)=>({...item,distanceKm:distanceKm(centerLat,centerLng,item.lat,item.lng),interested:interested.has(item.id)})).filter((item)=>item.distanceKm!<=distance&&(sector==="Todos los sectores"||item.sector===sector)&&(availability==="Todas las disponibilidades"||item.availability===availability));
+        candidates.sort((a,b)=>Number(Boolean(b.is_boosted&&b.boost_expires_at&&new Date(b.boost_expires_at).getTime()>Date.now()))-Number(Boolean(a.is_boosted&&a.boost_expires_at&&new Date(a.boost_expires_at).getTime()>Date.now()))||Number(a.is_demo)-Number(b.is_demo)||Number(b.is_featured)-Number(a.is_featured)||a.distanceKm!-b.distanceKm!);
         setCards(candidates);
         deckLoaded.current=true;
-        if(candidates.length)void supabase.from("jobmatch_card_views").insert({viewer_id:profile.id,worker_card_id:candidates[0].id,job_offer_id:null});
+        if(candidates.length&&!candidates[0].is_demo)void supabase.from("jobmatch_card_views").insert({viewer_id:profile.id,worker_card_id:candidates[0].id,job_offer_id:null});
       }else{
         const ownCard=workerCard!;
         const [{data:rows},{data:prior}]=await Promise.all([
@@ -217,10 +217,10 @@ export default function HomePage() {
           supabase.from("jobmatch_swipes").select("job_offer_id").eq("actor_id",profile.id).eq("worker_card_id",ownCard.id),
         ]);
         const seen=new Set((prior??[]).map((row)=>row.job_offer_id));
-        const candidates=((rows??[]) as JobOffer[]).filter((item)=>!item.is_demo&&item.company_id!==profile.id&&!seen.has(item.id)&&(sector==="Todos los sectores"||item.sector===sector)&&(item.salary_amount??0)>=minSalary).map((item)=>({...item,distanceKm:distanceKm(profile.lat??ownCard.lat,profile.lng??ownCard.lng,item.lat,item.lng)})).filter((item)=>item.distanceKm!<=distance&&(availability==="Todas las disponibilidades"||item.shift_type===availability));
-      candidates.sort((a,b)=>Number(Boolean(b.is_boosted&&b.boost_expires_at&&new Date(b.boost_expires_at).getTime()>Date.now()))-Number(Boolean(a.is_boosted&&a.boost_expires_at&&new Date(a.boost_expires_at).getTime()>Date.now()))||a.distanceKm!-b.distanceKm!);setCards(candidates);
+        const candidates=((rows??[]) as JobOffer[]).filter((item)=>item.company_id!==profile.id&&!seen.has(item.id)&&(sector==="Todos los sectores"||item.sector===sector)&&(item.salary_amount??0)>=minSalary).map((item)=>({...item,distanceKm:distanceKm(profile.lat??ownCard.lat,profile.lng??ownCard.lng,item.lat,item.lng)})).filter((item)=>item.distanceKm!<=distance&&(availability==="Todas las disponibilidades"||item.shift_type===availability));
+      candidates.sort((a,b)=>Number(Boolean(b.is_boosted&&b.boost_expires_at&&new Date(b.boost_expires_at).getTime()>Date.now()))-Number(Boolean(a.is_boosted&&a.boost_expires_at&&new Date(a.boost_expires_at).getTime()>Date.now()))||Number(a.is_demo)-Number(b.is_demo)||a.distanceKm!-b.distanceKm!);setCards(candidates);
         deckLoaded.current=true;
-        if(candidates.length)void supabase.from("jobmatch_card_views").insert({viewer_id:profile.id,worker_card_id:null,job_offer_id:candidates[0].id});
+        if(candidates.length&&!candidates[0].is_demo)void supabase.from("jobmatch_card_views").insert({viewer_id:profile.id,worker_card_id:null,job_offer_id:candidates[0].id});
       }
     }catch(cause){setNotice(cause instanceof Error?cause.message:"No se pudieron cargar las tarjetas.");setCards([]);deckLoaded.current=true;}
     finally{setLoading(false);}
@@ -246,6 +246,7 @@ export default function HomePage() {
 
   async function decide(card:DeckCard,direction:SwipeDirection){
     if(!supabase||!profile?.role||swipeInProgress.current)return;
+    if(card.is_demo){setUndo(null);setCards((current)=>current.filter((item)=>item.id!==card.id));setNotice("Contenido de muestra: no se ha guardado la acción ni se creará una conexión real.");return;}
     const company=profile.role==="company";
     const row={actor_id:profile.id,actor_role:profile.role,worker_card_id:company?card.id:workerCard?.id,job_offer_id:company?selectedOffer?.id:card.id,direction};
     if(!row.worker_card_id||!row.job_offer_id)return;

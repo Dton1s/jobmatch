@@ -140,3 +140,4 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .settings-offer-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .settings-offer-actions>button:last-child{white-space:nowrap}
 @media(max-width:480px){.offer-manager-title{flex-wrap:wrap}.offer-manager-title .text-action{margin-left:auto}.managed-offer{flex-wrap:wrap}.managed-offer-actions{margin-left:auto}.offer-boost-button{font-size:8px}.settings-offer-actions{gap:5px}}
+.sample-feed-notice{width:min(100%,520px);margin:0 auto 8px;padding:8px 11px;border:1px solid #d9e3b9;border-radius:10px;background:#f2f6e7;color:#59643c;font-size:10px;line-height:1.4;text-align:center}
