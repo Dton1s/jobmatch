@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { BadgeCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, TrendingUp } from "lucide-react";
 import { supabase, type WorkerCard } from "@/lib/supabase";
 
 export function WorkerBoostPanel({ workerCard, onError }: { workerCard: WorkerCard | null; onError: (message: string) => void }) {
@@ -47,7 +47,7 @@ export function WorkerBoostPanel({ workerCard, onError }: { workerCard: WorkerCa
 
   return <section className="worker-boost-card">
     <div className="worker-boost-heading">
-      <span className="worker-boost-icon"><Sparkles size={17}/></span>
+      <span className="worker-boost-icon"><TrendingUp size={17}/></span>
       <div><b>Impulso de perfil</b><small>Más visibilidad durante 7 días · 1,99 €</small></div>
       {boosted && <span className="billing-status active"><BadgeCheck size={13}/> Activo</span>}
     </div>
@@ -57,7 +57,7 @@ export function WorkerBoostPanel({ workerCard, onError }: { workerCard: WorkerCa
         ? <p className="worker-boost-status">Publica una ficha de trabajador activa para poder impulsarla.</p>
         : <p className="worker-boost-status">Destaca tu perfil para que más empresas lo vean en Descubrir.</p>}
     {!native && <button className="worker-boost-button" disabled={busy || boosted || !workerCard?.is_active || Boolean(workerCard?.is_demo)} onClick={() => void startCheckout()}>
-      <Sparkles size={14}/>{busy ? "Abriendo pago…" : boosted ? `Impulso activo · ${remaining}` : "Impulsar mi perfil por 1,99 € (7 días)"}
+      <ArrowUpRight size={14}/>{busy ? "Abriendo pago…" : boosted ? `Impulso activo · ${remaining}` : "Impulsar mi perfil por 1,99 € (7 días)"}
     </button>}
     {native && <small className="billing-expiry">Los pagos desde Android estarán disponibles al integrar Google Play Billing.</small>}
   </section>;

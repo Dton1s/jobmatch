@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, LoaderCircle, MapPin, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import { BriefcaseBusiness, CarFront, Check, Clock3, Languages, LoaderCircle, MapPin, Phone, ShieldCheck, Wrench } from "lucide-react";
 import { CloseButton } from "@/components/CloseButton";
 import { Avatar } from "@/components/Avatar";
 import { openCvReference } from "@/lib/cv-storage";
@@ -88,7 +88,7 @@ export function MatchedProfileSheet({ profileId, matchId, viewerRole, onClose }:
           <section className="profile-detail-section profile-presentation"><h3>Presentación</h3><p>{person.default_bio || worker?.bio || "Este profesional aún no ha añadido una presentación."}</p></section>
           <section className="profile-detail-grid profile-stats-grid"><div><span>Experiencia</span><b>{worker?.experience_years ?? person.experience_years ?? 0} años</b></div><div><span>Disponibilidad</span><b>{worker?.availability_note || worker?.availability || "Consultar"}</b></div></section>
           <section className="profile-detail-section"><h3><span className="profile-icon-chip"><Languages className="profile-detail-icon" size={16}/></span> Idiomas</h3><div className="skill-list">{(person.languages ?? []).map((language) => <span key={language}>{language}</span>)}{!person.languages?.length && <p>Sin idiomas indicados.</p>}</div></section>
-          {worker?.skills?.length ? <section className="profile-detail-section"><h3><span className="profile-icon-chip"><Sparkles className="profile-detail-icon" size={16}/></span> Habilidades</h3><div className="skill-list">{worker.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></section> : null}
+          {worker?.skills?.length ? <section className="profile-detail-section"><h3><span className="profile-icon-chip"><Wrench className="profile-detail-icon" size={16}/></span> Habilidades</h3><div className="skill-list">{worker.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></section> : null}
           {(hasLicense || hasVehicle) && <section className="profile-credentials">{hasLicense && <span><ShieldCheck size={15}/> Carnet de conducir</span>}{hasVehicle && <span><CarFront size={15}/> Vehículo propio</span>}</section>}
           {!isWorkerViewer && cvReference && worker?.user_id && <button type="button" className="cv-match-link" onClick={()=>void openCv()} disabled={cvOpening}>{cvOpening?<LoaderCircle className="spin" size={16}/>:<BriefcaseBusiness size={16}/>}📄 {cvOpening?"Preparando PDF…":"Ver Currículum (PDF)"}<small>{worker?.cv_filename || person.cv_filename || "Abrir documento · enlace temporal de 5 minutos"}</small></button>}
           {cvError&&<p className="form-error" role="alert">{cvError}</p>}

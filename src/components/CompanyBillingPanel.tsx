@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { BadgeCheck, Crown, Sparkles } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Crown } from "lucide-react";
 import { supabase, type JobOffer, type Profile } from "@/lib/supabase";
 
 export function CompanyBillingPanel({ profile, onError }: { profile: Profile; onError: (message: string) => void }) {
@@ -39,7 +39,7 @@ export function CompanyBillingPanel({ profile, onError }: { profile: Profile; on
       <div className="billing-card-heading"><span className="billing-icon"><Crown size={18}/></span><div><b>Job Match Pro</b><small>19,99 €/mes</small></div><span className={`billing-status ${activePro ? "active" : "inactive"}`}>{activePro ? <><BadgeCheck size={13}/> Activa</> : "Inactiva"}</span></div>
       <p>Publica ofertas sin límite y escribe directamente a candidatos, aunque todavía no haya match.</p>
       {activePro && <small className="billing-expiry">Renovación / fin del periodo: {new Date(profile.pro_expires_at!).toLocaleDateString("es-ES")}</small>}
-      {!native && !activePro && <button className="billing-primary" disabled={Boolean(busy)} onClick={() => void checkout("/api/checkout/subscription", {}, "pro")}><Sparkles size={15}/>{busy === "pro" ? "Abriendo pago…" : "Activar Job Match Pro"}</button>}
+      {!native && !activePro && <button className="billing-primary" disabled={Boolean(busy)} onClick={() => void checkout("/api/checkout/subscription", {}, "pro")}><BriefcaseBusiness size={15}/>{busy === "pro" ? "Abriendo pago…" : "Activar Job Match Pro"}</button>}
       {native && !activePro && <small className="billing-expiry">Las compras dentro de Android estarán disponibles al integrar Google Play Billing.</small>}
     </div>
     {native && <small className="billing-expiry">Los Boost se podrán comprar desde Android cuando Google Play Billing esté conectado.</small>}

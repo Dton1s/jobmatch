@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
-import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, MapPin, MessageCircle, Pause, Play, RotateCcw, X, Heart } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, Headset, MapPin, MessageCircle, Pause, Play, RotateCcw, Store, Truck, Utensils, X, Heart } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase";
@@ -107,8 +107,8 @@ function SwipeDeckCard({ role, card, active, visible, isPro, onContactDirect, on
   return <>
       <motion.article className={`swipe-card ${active ? "swipe-card-current" : "swipe-card-next"}`} style={{ x, rotate, scale: active ? 1 : .96, opacity: 1, backgroundColor: "#ffffff", zIndex: active ? 10 : 0, touchAction: "pan-y" }} drag={active && visible ? "x" : false} dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} dragMomentum={false} onDragStart={() => { if (active) dragInProgress.current = true; }} onDragEnd={(_, info) => { if (active) { dragInProgress.current = false; if (document.visibilityState === "hidden" || !visible) x.set(0); else finishDrag(info.offset.x); } }} initial={active ? { opacity: 0, scale: .95, y: 16 } : false} animate={{ opacity: 1, scale: active ? 1 : .96, y: 0 }} transition={{ type: "tween", duration: .24, ease: "easeOut" }}>
       <div className={`card-cover ${image ? "has-photo" : "no-photo"} sector-${sectorSlug(sector)}`} style={image ? { backgroundImage: `linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.5) 45%, transparent 100%),url(${image})` } : undefined}>
-        <div className="cover-topline">{card.is_demo && <span className="demo-badge">{job ? "OFERTA FICTICIA · MUESTRA" : "PERFIL FICTICIO · MUESTRA"}</span>}{job?.is_boosted&&job.boost_expires_at&&new Date(job.boost_expires_at).getTime()>Date.now()&&<span className="boost-badge">✦ Destacada</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
-        <div className="sector-symbol" aria-hidden="true">{image ? sectorIcon(sector) : initials(title)}</div>
+        <div className="cover-topline">{card.is_demo && <span className="demo-badge">{job ? "OFERTA FICTICIA · MUESTRA" : "PERFIL FICTICIO · MUESTRA"}</span>}{job?.is_boosted&&job.boost_expires_at&&new Date(job.boost_expires_at).getTime()>Date.now()&&<span className="boost-badge"><BadgeCheck size={13}/> Destacada</span>}<span className="distance-pill"><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span></div>
+        <div className="sector-symbol" aria-hidden="true"><SectorIcon sector={sector}/></div>
         <div className="cover-copy"><span className="cover-sector">{job ? job.sector : worker?.city}</span><h2>{title}</h2><p>{job ? job.position : worker?.age ? `${worker.age} años · ${worker.city}` : worker?.city}</p></div>
         {worker?.interested && <div className="interest-pill">Le interesa tu oferta</div>}
         {active && <><motion.div className="swipe-stamp stamp-no" style={{ opacity: noOpacity }}>PASAR</motion.div><motion.div className="swipe-stamp stamp-yes" style={{ opacity: yesOpacity }}>ME INTERESA</motion.div></>}
@@ -150,5 +150,4 @@ function AudioPitch({ source, audioRef, playing, onToggle }: { source: string; a
 function formatDistance(km: number) { return km < 1 ? `a ${Math.max(100, Math.round(km * 1000 / 100) * 100)} m` : `a ${km.toLocaleString("es-ES", { maximumFractionDigits: 1 })} km`; }
 function availabilityLabel(value: string) { return ({ inmediata: "Inmediata", fines_de_semana: "Fines de semana", media_jornada: "Media jornada", completa: "Jornada completa" } as Record<string, string>)[value] ?? value; }
 function sectorSlug(value: string) { return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]+/g, "-"); }
-function sectorIcon(value: string) { if (value === "Hostelería") return "✳"; if (value === "Comercio") return "◈"; if (value === "Logística") return "↗"; if (value === "Atención al cliente") return "◎"; return "+"; }
-function initials(value?: string) { return value?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "JM"; }
+function SectorIcon({ sector }: { sector: string }) { const Icon = sector === "Hostelería" ? Utensils : sector === "Comercio" ? Store : sector === "Logística" ? Truck : sector === "Atención al cliente" ? Headset : BriefcaseBusiness; return <Icon size={50} strokeWidth={1.5}/>; }
