@@ -38,7 +38,22 @@ export async function POST(request: Request): Promise<Response> {
   try {
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object as Stripe.Checkout.Session;
-      if (session.metadata?.kind === "boost") {
+      if (session.metadata?.kind === "worker_boost") {
+        if (session.payment_status !== "paid") {
+          return Response.json({ received: true });
+        }
+        const userId = session.metadata.user_id;
+        if (!userId || !/^[0-9a-f-]{36}$/i.test(userId)) {
+          throw new Error("Worker boost checkout is missing a valid user_id.");
+        }
+        const { error } = await serviceSupabase().rpc("jobmatch_apply_worker_boost", {
+          p_event_id: event.id,
+          p_event_type: event.type,
+          p_user_id: userId,
+          p_payment_status: session.payment_status,
+        });
+        if (error) throw error;
+      } else if (session.metadata?.kind === "boost") {
         if (session.payment_status !== "paid") {
           return Response.json({ received: true });
         }

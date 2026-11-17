@@ -10,6 +10,12 @@ type BillingProfile = {
   pro_expires_at: string | null;
 };
 
+type WorkerBillingProfile = {
+  id: string;
+  role: string | null;
+  enabled_roles: string[] | null;
+};
+
 let stripeClient: Stripe | null = null;
 export function stripe(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -45,6 +51,30 @@ export async function requireCompany(authorizationHeader: string | null): Promis
   const profile = data as BillingProfile | null;
   if (!profile || profile.role !== "company" || !profile.enabled_roles?.includes("company")) {
     return { error: "Activa el modo Empresa para usar la facturación de JobMatch.", status: 403 };
+  }
+  return { admin, profile };
+}
+
+export async function requireWorker(authorizationHeader: string | null): Promise<{ admin: SupabaseClient; profile: WorkerBillingProfile } | { error: string; status: number }> {
+  const authorization = authorizationHeader ?? "";
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!token || !url || !anonKey) return { error: "Inicia sesión para continuar.", status: 401 };
+
+  const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: authData, error: authError } = await authClient.auth.getUser(token);
+  if (authError || !authData.user) return { error: "La sesión ha caducado. Vuelve a iniciar sesión.", status: 401 };
+
+  const admin = serviceSupabase();
+  const { data, error } = await admin.from("jobmatch_profiles")
+    .select("id,role,enabled_roles")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+  if (error) throw error;
+  const profile = data as WorkerBillingProfile | null;
+  if (!profile || profile.role !== "worker" || !profile.enabled_roles?.includes("worker")) {
+    return { error: "Activa el modo Trabajador para impulsar tu perfil.", status: 403 };
   }
   return { admin, profile };
 }

@@ -73,6 +73,8 @@ create table public.jobmatch_worker_cards (
   is_active boolean not null default true,
   is_featured boolean not null default false,
   is_demo boolean not null default false,
+  is_boosted boolean not null default false,
+  boost_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -475,6 +477,9 @@ create table if not exists public.jobmatch_stripe_events (
 create index if not exists jobmatch_job_offers_active_boost_idx
   on public.jobmatch_job_offers (is_boosted, boost_expires_at desc, is_active, expires_at);
 
+create index if not exists jobmatch_worker_cards_active_boost_idx
+  on public.jobmatch_worker_cards (is_boosted, boost_expires_at desc, is_active, is_featured);
+
 alter table public.jobmatch_subscriptions enable row level security;
 alter table public.jobmatch_stripe_events enable row level security;
 
@@ -518,6 +523,25 @@ drop trigger if exists jobmatch_job_offers_billing_guard on public.jobmatch_job_
 create trigger jobmatch_job_offers_billing_guard
 before insert or update of is_boosted, boost_expires_at on public.jobmatch_job_offers
 for each row execute function public.jobmatch_block_client_billing_changes();
+
+create or replace function public.jobmatch_block_client_worker_boost_changes()
+returns trigger language plpgsql security invoker set search_path = '' as $$
+begin
+  if coalesce(auth.role(), '') = 'authenticated' then
+    if tg_op = 'INSERT' and (new.is_boosted is distinct from false or new.boost_expires_at is not null) then
+      raise exception 'Worker profile boosts are managed by billing';
+    elsif tg_op = 'UPDATE' and (new.is_boosted is distinct from old.is_boosted or new.boost_expires_at is distinct from old.boost_expires_at) then
+      raise exception 'Worker profile boosts are managed by billing';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists jobmatch_worker_cards_billing_guard on public.jobmatch_worker_cards;
+create trigger jobmatch_worker_cards_billing_guard
+before insert or update of is_boosted, boost_expires_at on public.jobmatch_worker_cards
+for each row execute function public.jobmatch_block_client_worker_boost_changes();
 
 create or replace function public.jobmatch_process_stripe_event(
   p_event_id text,
@@ -588,6 +612,40 @@ end;
 $$;
 revoke all on function public.jobmatch_process_stripe_event(text,text,text,uuid,uuid,text,text,text,timestamptz,text,boolean) from public, anon, authenticated;
 grant execute on function public.jobmatch_process_stripe_event(text,text,text,uuid,uuid,text,text,text,timestamptz,text,boolean) to service_role;
+
+create or replace function public.jobmatch_apply_worker_boost(
+  p_event_id text,
+  p_event_type text,
+  p_user_id uuid,
+  p_payment_status text
+)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  v_inserted integer;
+begin
+  if nullif(trim(p_event_id), '') is null
+    or p_event_type not in ('checkout.session.completed', 'checkout.session.async_payment_succeeded')
+    or p_user_id is null
+    or p_payment_status <> 'paid' then
+    raise exception 'Paid worker boost checkout metadata is incomplete';
+  end if;
+
+  insert into public.jobmatch_stripe_events (event_id, event_type)
+  values (p_event_id, p_event_type)
+  on conflict (event_id) do nothing;
+  get diagnostics v_inserted = row_count;
+  if v_inserted = 0 then return false; end if;
+
+  update public.jobmatch_worker_cards
+     set is_boosted = true, boost_expires_at = now() + interval '7 days'
+   where user_id = p_user_id and is_demo = false;
+  if not found then raise exception 'Worker profile not found'; end if;
+
+  return true;
+end;
+$$;
+revoke all on function public.jobmatch_apply_worker_boost(text,text,uuid,text) from public, anon, authenticated;
+grant execute on function public.jobmatch_apply_worker_boost(text,text,uuid,text) to service_role;
 
 create or replace function public.jobmatch_start_pro_chat(p_worker_card_id uuid, p_job_offer_id uuid)
 returns uuid language plpgsql security definer set search_path = '' as $$

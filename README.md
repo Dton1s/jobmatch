@@ -2,7 +2,7 @@
 
 Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofertas con salario visible, intereses mutuos y chat, con filtros de distancia que pueden superar los 50 km. La interfaz es mobile-first y se exporta como sitio estático de Next.js; Capacitor puede cargar esa exportación como aplicación Android.
 
-> **Estado revisado el 16 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel y funcionando, según la última confirmación del propietario.
+> **Estado revisado el 16 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario.
 
 ## Índice
 
@@ -25,50 +25,53 @@ Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofert
 
 - Repositorio: `Dton1s/jobmatch`, rama de publicación: `main`.
 - Proyecto Vercel: `jobmatch`, equipo `nebula-b346`.
-- Dominio canónico `https://job-match.es` verificado en Vercel y operativo. El propietario confirma que está en las Redirect URLs de Supabase; el Site URL permanece en Nebula de forma intencional mientras el proyecto Supabase sea compartido.
+- Dominio canónico `https://job-match.es` verificado en Vercel, operativo y con certificado SSL activo. Las Redirect URLs de Supabase se limpiaron y quedaron limitadas a `job-match.es` y a los dominios de Nebula Digital Studio; se retiraron rutas de proyectos anteriores. El Site URL del proyecto compartido se mantiene según la configuración actual.
 - Nombre de marca: **Job Match** en textos visibles y previsto para la ficha de Play como **Job Match - Trabajo y Empleo**. El logotipo actual conserva el wordmark compacto `jobmatch`; identificadores técnicos como `jobmatch_*`, paquete NPM y `appId` no se renombran en esta actualización.
 - Operador: **Antonio Meroño Estañ**, persona física autónoma y titular legal del servicio, NIF indicado en la documentación legal. **Nebula Digital Studio** se usa como nombre comercial/estudio que gestiona el servicio; no es una sociedad distinta del titular.
-- Supabase conectado actualmente: instancia compartida con otros proyectos de Nébula. Es la base que utiliza la versión web desplegada; el paso pendiente es migrar a un proyecto JobMatch aislado cuando terminen las pruebas y esté preparado el plan de producción. Las tablas, tipos, funciones, triggers, índices y políticas propias de la app usan el prefijo `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`.
-- Monetización: Boost (7,99 € por 7 días) y Job Match Pro (19,99 €/mes). El propietario confirma que Stripe está en Live y que el webhook de producción está activo en `https://job-match.es/api/webhooks/stripe` con los siete eventos documentados más abajo. Vercel confirma que `STRIPE_WEBHOOK_SECRET` se actualizó el 16-11-2026 a las 16:13 UTC y que después quedó `READY` un despliegue de producción (16:14 UTC). La clave es sensible y su modo no se pudo leer desde el conector; Live queda registrado como confirmación operativa, no como verificación independiente.
+- Supabase conectado actualmente: instancia compartida con otros proyectos de Nébula, que mantiene la aplicación web en producción. El aislamiento de Job Match es a nivel de esquema: sus tablas, tipos, funciones, triggers, índices y políticas usan el prefijo estricto `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`. La instancia compartida no se presenta como una base exclusiva.
+- Monetización: Boost (7,99 € por 7 días) y Job Match Pro (19,99 €/mes). Según confirmación del propietario, Stripe está en modo Live y su webhook de producción está activo en `https://job-match.es/api/webhooks/stripe` con los siete eventos documentados más abajo. Vercel confirma que `STRIPE_WEBHOOK_SECRET` se actualizó el 16-11-2026 a las 16:13 UTC y que después quedó `READY` un despliegue de producción (16:14 UTC). La infraestructura de pagos se considera configurada y operativa; la clave no se copia al repositorio.
 - PWA instalada: manifest con nombre e iconos de JobMatch, `display: standalone` y banner de instalación para Chromium en PC/Android, con instrucciones manuales para Safari en iOS. La app no anuncia modo sin conexión ni registra un service worker.
 - Identidad visual: logo, banner, icono maestro de la app y favicons/iconos PWA están incorporados al repositorio. El logotipo gráfico conserva el wordmark compacto `jobmatch`, mientras la interfaz y la ficha de tienda utilizan **Job Match**.
 - Correo corporativo: el propietario confirma que Nominalia tiene creados y activos `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es`. Privacidad y Soporte son los contactos públicos; Administración queda para gestiones internas hasta definir flujos específicos.
-- Android nativo: Capacitor está configurado, pero este repositorio todavía no contiene `android/`; aún no hay APK ni AAB final publicados.
+- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. El siguiente hito técnico inmediato es inicializar Android con Capacitor (`npx cap add android`); todavía no hay carpeta `android/`, APK ni AAB publicados.
 
 ## Estado de lanzamiento
 
 La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado en el proyecto y sirve la producción. El último despliegue de producción observado está `READY`; el subdominio `jobmatch.nebuladigitalstudio.es` permanece conectado como origen anterior.
 
+> **Infraestructura web completada al 100% según confirmación operativa del propietario:** Vercel, dominio canónico con SSL, buzones de Nominalia, Stripe Live con webhook activo y SEO (rastreo y Search Console). El hito técnico inmediato pendiente es crear la plataforma Android con Capacitor.
+
 | Área | Estado a 16-11-2026 |
 | --- | --- |
-| Aplicación web y flujos principales | Implementados en el repositorio; confirmar despliegue actual y pruebas de extremo a extremo antes de abrir el registro público. |
+| Aplicación web y flujos principales | Desplegados en Vercel; los flujos autenticados principales se revisaron en sesión. Mantener pruebas de aceptación de extremo a extremo antes de escalar el registro público. |
 | PWA e identidad visual | Manifest, instalación guiada, logotipo, banner «Haz match con el empleo», icono y favicon incorporados. |
-| Supabase | Funciona con el proyecto compartido; migrar a un proyecto aislado de JobMatch sigue pendiente. |
+| Supabase | La web funciona sobre el proyecto compartido con Nébula. El esquema de Job Match está aislado por el prefijo estricto `jobmatch_` en tablas, funciones y políticas. Una migración futura a proyecto dedicado es una decisión de infraestructura, no un requisito para que la web actual funcione. |
 | Currículums privados | Código y SQL de bucket privado implementados; validar políticas y migración de los CV antiguos en el proyecto conectado. |
-| Stripe | Según confirmación del propietario, modo Live y webhook de producción activo. Falta completar y registrar una transacción end-to-end controlada y revisar reembolso/facturación. |
-| Nombre y dominio | Nombre **Job Match** y dominio canónico **job-match.es** operativos; `job-match.es` verificado en Vercel. El Site URL de Supabase se mantiene en Nebula mientras se comparta la instancia. |
-| SEO | Páginas estáticas existentes; `robots.txt`, `sitemap.xml` y Search Console pendientes. |
+| Stripe | Infraestructura configurada en modo Live; webhook de producción activo según confirmación del propietario. Checkout controlado, reembolsos y facturación siguen siendo validaciones operativas recomendadas. |
+| Nombre, dominio y correo | Nombre **Job Match**, `https://job-match.es`, SSL y los tres buzones de Nominalia operativos según confirmación del propietario. |
+| SEO | `public/robots.txt` y `public/sitemap.xml` están desplegados y verificados con HTTP 200. El sitemap lista las cinco páginas públicas principales; la propiedad de Google Search Console está verificada. |
 | Android / Google Play | Capacitor configurado; la carpeta `android/`, APK/AAB firmado y publicación no están en este repositorio. |
 
-La producción web actual utiliza la instancia Supabase compartida existente, no una base local. Por eso, “activar Supabase definitivo” significa crear y validar el proyecto aislado de JobMatch y migrar a él de forma controlada; no apagar ni sustituir la instancia actual antes de tener copia, verificación y despliegue de destino.
+La producción web utiliza la instancia Supabase compartida existente. Los objetos de base de datos propios de Job Match se aíslan mediante el prefijo estricto `jobmatch_` en tablas, funciones y políticas; esta separación de esquema permite operar la aplicación actual sin presentarla como un proyecto Supabase exclusivo. Una futura migración a una instancia dedicada se planificará con backup, validación y despliegue controlado.
 
 ### Verificación técnica de producción — 16 de noviembre de 2026
 
-- **Dominio:** `job-match.es` aparece verificado en el proyecto Vercel `jobmatch`; el último despliegue Production consultado está en estado `READY`.
-- **Correo:** el propietario confirma que los tres buzones de Nominalia están activos y listos para uso operativo.
+- **Dominio y SSL:** el propietario confirma que `https://job-match.es` está operativo en Vercel y con SSL activo; el último despliegue Production consultado está en estado `READY`.
+- **Correo:** el propietario confirma que `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es` están activos y listos para uso operativo.
 - **Stripe:** el propietario confirma modo Live, webhook activo en `https://job-match.es/api/webhooks/stripe` y recepción configurada para los siete eventos enumerados en la sección de monetización. Vercel muestra `STRIPE_WEBHOOK_SECRET` actualizado el 16-11-2026 a las 16:13 UTC y un despliegue Production `READY` posterior, a las 16:14 UTC. No se registra el secreto `whsec_...` en el repositorio.
-- **Límite de verificación de Stripe:** la integración de Stripe no está conectada a esta auditoría y Vercel oculta la clave privada. El modo Live, el endpoint activo y sus eventos quedan registrados como confirmación del propietario; no se inspeccionó el panel de Stripe ni se ejecutó un pago real durante esta revisión.
+- **SEO:** `public/robots.txt` y `public/sitemap.xml` están desplegados y responden HTTP 200 en el dominio canónico. El sitemap contiene cinco URLs públicas (`/`, `/aviso-legal`, `/privacidad`, `/terminos` y `/eliminar-cuenta`); el propietario confirma que la verificación de Google Search Console está completada.
+- **Supabase:** el propietario confirma que las Redirect URLs se limpiaron y limitaron a `job-match.es` y dominios de Nebula Digital Studio, retirando URLs de proyectos anteriores. La aplicación sigue usando el proyecto compartido, con sus tablas, funciones y políticas aisladas bajo el prefijo estricto `jobmatch_`.
 - **Variables Production:** el inventario de Vercel contiene todas las claves críticas documentadas; no faltan entradas. La variable pública `NEXT_PUBLIC_APP_URL` está configurada como `https://job-match.es`. Los valores secretos no se imprimen ni se copian al README.
 - **Next.js y funciones:** `next.config.ts` configura `output: "export"`; las páginas públicas se generan como contenido estático. Las funciones independientes están en `api/`; `package.json` declara `"type": "module"`, los handlers usan ESM y las importaciones locales llevan extensión `.js`. No se encontraron usos de CommonJS (`require`/`module.exports`) en estas funciones.
 - **Build local:** `npm run typecheck` y `npm run build` finalizaron correctamente; Next generó las rutas estáticas.
 
-### Próximos pasos inmediatos
+### Próximo hito técnico
 
-1. Verificar la propiedad en Google Search Console, enviar `https://job-match.es/sitemap.xml` y revisar indexación y cobertura.
-2. Inicializar Android con `npx cap add android`; después generar recursos nativos, ejecutar `npx cap sync android` y comenzar las pruebas internas antes del AAB.
-3. Completar y registrar un checkout controlado en modo Live, validar la entrega/idempotencia del webhook y revisar reembolsos, facturación e impuestos.
+1. Inicializar la plataforma Android con `npx cap add android`.
+2. Configurar OAuth/deep links, permisos y recursos nativos; sincronizar con `npx cap sync android` y probar en dispositivos antes de generar el AAB.
+3. En paralelo, mantener las pruebas operativas de Checkout, webhook, renovación, cancelación y reembolso antes de ampliar el volumen de pagos.
 
-El código de Checkout y el webhook de Stripe están en el repositorio. La confirmación del propietario sobre el modo Live y el endpoint activo se registra arriba; la cuenta de Stripe no está conectada a esta auditoría, por lo que no se validó de forma independiente la clave Live, los Price IDs ni la entrega efectiva de eventos.
+El código de Checkout y el webhook de Stripe están en el repositorio. La cuenta de Stripe no está conectada a esta auditoría; el estado Live y el endpoint activo se documentan según confirmación del propietario. La publicación de infraestructura no sustituye las pruebas operativas periódicas de pagos.
 
 ## Cómo se usa
 
@@ -176,6 +179,13 @@ Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura
 - En Vercel están creadas las variables de producción enumeradas en [Variables de entorno en Vercel](#variables-de-entorno-en-vercel). No copies sus valores al README. `STRIPE_PRO_PRICE_ID` debe identificar un precio Stripe activo de 19,99 EUR recurrente cada mes; el endpoint lo valida antes de crear Checkout. El Boost actual crea un precio único de 7,99 EUR directamente en el endpoint y dura 7 días; `STRIPE_BOOST_PRICE_ID` también está configurada en Vercel, pero el código actual no la consume. El propietario confirma que el endpoint de producción está configurado y activo en Stripe: `https://job-match.es/api/webhooks/stripe`, con los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` e `invoice.payment_failed`.
 - Las variables de Production necesarias están presentes en Vercel. El propietario confirma configuración Live y webhook activo; la actualización de `STRIPE_WEBHOOK_SECRET` fue seguida por un despliegue Production `READY`. Pendiente registrar un checkout de verificación con una transacción controlada y revisar el ciclo de reembolso/facturación. Los botones Stripe se ocultan en Android mientras no se integre Google Play Billing.
 
+### Impulso de perfil de trabajador
+
+- **Precio y vigencia:** pago único de 1,99 € para impulsar una ficha de trabajador durante 7 días. Las fichas impulsadas vigentes se priorizan en el mazo de descubrimiento de empresas.
+- **Checkout:** `api/checkout/worker-boost.ts` valida sesión y modo Trabajador en servidor, y crea la sesión Stripe con `user_id` en metadata. El webhook activa el impulso mediante `jobmatch_apply_worker_boost`, con deduplicación de eventos Stripe.
+- **Interfaz:** el panel `Perfil y ajustes` del modo Trabajador muestra si el impulso está activo y cuánto tiempo queda. El Checkout se oculta en Android hasta integrar Google Play Billing.
+- **Migración Supabase:** aplica `supabase/upgrade_worker_boost.sql` una vez en el proyecto conectado. El script añade campos de vigencia, impide cambios de entitlement desde clientes autenticados y habilita el RPC solo para `service_role`. `supabase/schema.sql` también incluye el esquema para instalaciones nuevas.
+
 ## Variables de entorno
 
 Copia `.env.example` a `.env.local` en local y añade las mismas variables en Vercel (Development/Preview/Production según proceda):
@@ -209,11 +219,11 @@ La auditoría de Vercel del 16-11-2026 encontró todas las claves esperadas en P
 
 Vercel está conectado con `Dton1s/jobmatch`; cada push a `main` inicia un despliegue de producción. Revisa que quede `READY` en Vercel después de publicar. El dominio canónico `https://job-match.es` está operativo; el subdominio `https://jobmatch.nebuladigitalstudio.es` puede mantenerse como origen anterior durante la transición.
 
-El manifest usa rutas relativas (`/`) y no queda ligado a un dominio. El banner solicita la instalación solo cuando Chromium emite `beforeinstallprompt`; en iOS muestra los pasos manuales. El cierre persiste en `localStorage`. No existe un service worker ni funcionalidad offline implementada. Los metadatos y textos legales usan `soporte@job-match.es` y `privacidad@job-match.es`. El propietario confirma que los tres buzones de Nominalia (`administracion@job-match.es`, `privacidad@job-match.es`, `soporte@job-match.es`) están creados, activos y listos. La Redirect URL de Supabase incluye el dominio canónico; su Site URL permanece en Nebula intencionalmente porque el proyecto Supabase es compartido.
+El manifest usa rutas relativas (`/`) y no queda ligado a un dominio. El banner solicita la instalación solo cuando Chromium emite `beforeinstallprompt`; en iOS muestra los pasos manuales. El cierre persiste en `localStorage`. No existe un service worker ni funcionalidad offline implementada. Los metadatos y textos legales usan `soporte@job-match.es` y `privacidad@job-match.es`. El propietario confirma que los tres buzones de Nominalia (`administracion@job-match.es`, `privacidad@job-match.es`, `soporte@job-match.es`) están creados, activos y listos. Las Redirect URLs de Supabase se limpiaron y acotaron a `job-match.es` y los dominios de Nebula Digital Studio; se retiraron las URLs antiguas de otros proyectos. El proyecto Supabase compartido continúa siendo el backend de producción.
 
-### SEO actual y tareas
+### SEO y rastreo — completado
 
-`public/robots.txt` y `public/sitemap.xml` se copian a la exportación estática con el dominio canónico `https://job-match.es`. El sitemap incluye la portada y las páginas públicas legales/de eliminación; el robots permite el rastreo público y excluye las rutas de aplicación indicadas. Pendiente registrar `https://job-match.es` en Google Search Console, enviar el sitemap y validar indexación y cobertura.
+`public/robots.txt` y `public/sitemap.xml` se incluyen en la exportación estática, están desplegados y responden HTTP 200 en `https://job-match.es/robots.txt` y `https://job-match.es/sitemap.xml`. El sitemap contiene las cinco páginas públicas principales: portada, aviso legal, privacidad, términos y eliminación de cuenta. La verificación del dominio en Google Search Console está completada. El seguimiento periódico de indexación y cobertura continúa como mantenimiento SEO.
 
 ## Capacitor y Android
 
@@ -252,7 +262,7 @@ Esta es la lista pendiente de trabajo técnico y administrativo. Los pasos que d
 
 ### 2. Proyecto Supabase de producción independiente
 
-La app desplegada ya utiliza Supabase compartido con otros productos. El pendiente es aislar JobMatch, no conectar por primera vez la versión web.
+La app desplegada utiliza Supabase compartido con otros productos y mantiene su propio esquema mediante el prefijo estricto `jobmatch_` en tablas, funciones y políticas. Si en el futuro se decide pasar a un proyecto Supabase dedicado, usar este procedimiento de migración; no es un paso necesario para que la web actual funcione.
 
 1. Elegir el plan Supabase adecuado y crear un proyecto separado llamado JobMatch; guardar región, URL, anon key y service role key en un gestor de secretos.
 2. Mantener la instancia compartida disponible hasta terminar pruebas de migración y definir una ventana de cambio. No borrar ni pausar la base origen.
@@ -267,16 +277,16 @@ La app desplegada ya utiliza Supabase compartido con otros productos. El pendien
 
 ### 3. Identidad, dominio y correo
 
-1. **Completado:** dominio canónico `job-match.es` activo y verificado en Vercel; mantener acceso al registrador y configurar `www` solo si se decide usarlo.
+1. **Completado:** dominio canónico `job-match.es` activo, verificado en Vercel y con SSL; mantener acceso al registrador y configurar `www` solo si se decide usarlo.
 2. **Completado según el propietario:** buzones de Nominalia `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es` creados y activos. Seguir probando su recepción y entrega.
-3. **Completado según el propietario:** Redirect URL de Supabase incluye el dominio canónico. El Site URL de Nebula se conserva mientras la instancia siga compartida; cambiarlo a `https://job-match.es` al migrar a Supabase propio.
-4. Revisar textos legales/canonical y completar una prueba de login, eliminación de cuenta y correo desde el dominio operativo.
+3. **Completado según el propietario:** las Redirect URLs de Supabase se limpiaron y limitaron a `job-match.es` y dominios de Nebula Digital Studio; se retiraron rutas de proyectos anteriores. El Site URL de la instancia compartida permanece según la configuración operativa vigente.
+4. Mantener comprobaciones periódicas de login, eliminación de cuenta y recepción de correo desde el dominio operativo.
 
 ### 4. SEO y presencia local
 
-1. Verificar en Google Search Console la propiedad del dominio y enviar `/sitemap.xml`.
-2. Revisar metadatos por página, idioma español, Open Graph e iconos. Evitar indexar paneles autenticados o URLs con información de usuario.
-3. Revisar cobertura, indexabilidad móvil y enlaces rotos. Preparar contenido local útil para Torrevieja sin duplicar páginas ni inventar ofertas.
+1. **Completado:** `robots.txt` y `sitemap.xml` están desplegados y verificados con HTTP 200; el sitemap contiene las cinco páginas públicas principales.
+2. **Completado según el propietario:** propiedad del dominio verificada en Google Search Console.
+3. Como mantenimiento, revisar cobertura, indexabilidad móvil, metadatos por página y enlaces rotos. Preparar contenido local útil sin duplicar páginas ni inventar ofertas.
 4. Si se cambia el dominio operativo, seguir el proceso de cambio de dirección de Search Console cuando aplique y mantener las redirecciones del dominio previo.
 
 ### 5. APK/AAB y publicación en Google Play
@@ -312,7 +322,7 @@ La app desplegada ya utiliza Supabase compartido con otros productos. El pendien
 
 1. Dominio `job-match.es` y los tres buzones de Nominalia constan activos según el propietario; mantener acceso de recuperación y comprobar entrega de correo periódicamente.
 2. Si se decide usar `www.job-match.es`, añadirlo y redirigirlo al dominio canónico. Conservar el subdominio anterior durante la transición si aún se necesita.
-3. La Redirect URL de Supabase ya incluye el dominio operativo según el propietario; conservar el Site URL de Nebula mientras el proyecto siga compartido y cambiarlo al migrar a Supabase independiente.
+3. **Completado según el propietario:** las Redirect URLs se limpiaron y limitaron a `job-match.es` y dominios de Nebula Digital Studio; se retiraron rutas de proyectos anteriores. Mantener la configuración del Site URL compartido mientras esa instancia siga en uso.
 4. Comprobar canonical/OG, documentos legales, enlaces de eliminación, checkout y PWA en `https://job-match.es`.
 
 
