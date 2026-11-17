@@ -5,6 +5,7 @@ import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, Loade
 import { CloseButton } from "@/components/CloseButton";
 import { supabase, type JobOffer, type Profile, type WorkerCard } from "@/lib/supabase";
 import { CvUploadField } from "@/components/CvUploadField";
+import { OfferBoostButton } from "@/components/CompanyBillingPanel";
 
 const sectors = ["Hostelería", "Comercio", "Logística", "Limpieza", "Atención al cliente", "Administración", "Construcción", "Sanidad", "Tecnología", "Otro"];
 const townCenters: Record<string, [number, number]> = {
@@ -24,13 +25,14 @@ async function upload(file: File, userId: string, type: "photo" | "audio") {
   return supabase.storage.from("jobmatch-media").getPublicUrl(path).data.publicUrl;
 }
 
-export function CardEditor({ profile, existingWorker, existingOffer, offers, onSaved, onCancel, onSelectOffer, onToggleOffer }: {
+export function CardEditor({ profile, existingWorker, existingOffer, offers, onSaved, onCancel, onSelectOffer, onToggleOffer, onUpgrade }: {
   profile: Profile; existingWorker: WorkerCard | null; existingOffer: JobOffer | null; offers: JobOffer[];
-  onSaved: () => void; onCancel: () => void; onSelectOffer: (id: string) => void; onToggleOffer: (offer: JobOffer) => void;
+  onSaved: () => void; onCancel: () => void; onSelectOffer: (id: string) => void; onToggleOffer: (offer: JobOffer) => void; onUpgrade: () => void;
 }) {
   const isWorker = profile.role === "worker";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [limitReached, setLimitReached] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [recorded, setRecorded] = useState<Blob | null>(null);
@@ -59,6 +61,10 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
   const currentPhoto = isWorker ? existingWorker?.photo_path ?? profile.avatar_url : existingOffer?.business_image_path ?? profile.company_logo_url;
   const avatarUrl = photoPreview || currentPhoto || "";
   const oldIntro = existingWorker?.intro_audio_path ?? profile.default_audio_url ?? "";
+  const activeOffersCount = offers.filter((offer) => offer.company_id === profile.id && offer.is_active && !offer.is_demo && new Date(offer.expires_at).getTime() > Date.now()).length;
+  const isPro = Boolean(profile.is_pro && profile.pro_expires_at && new Date(profile.pro_expires_at).getTime() > Date.now());
+  const atFreeOfferLimit = !isPro && activeOffersCount >= 3;
+  const existingOfferCountsAsActive = Boolean(existingOffer?.is_active && !existingOffer.is_demo && new Date(existingOffer.expires_at).getTime() > Date.now());
 
   useEffect(() => () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -140,6 +146,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
+    if (!isWorker && !existingOfferCountsAsActive && atFreeOfferLimit) { setBusy(false); setLimitReached(true); return; }
     const data = new FormData(event.currentTarget);
     try {
       if (!supabase) throw new Error("Configura las variables de Supabase primero.");
@@ -177,14 +184,19 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
         if (profileError) throw profileError;
       }
       onSaved();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar. Comprueba los campos e inténtalo de nuevo."); }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "No se pudo guardar. Comprueba los campos e inténtalo de nuevo.";
+      if (message.includes("free_offer_limit_reached")) setLimitReached(true);
+      setError(message.includes("free_offer_limit_reached") ? "El plan gratuito permite hasta 3 ofertas activas. Job Match Pro elimina ese límite." : message);
+    }
     finally { setBusy(false); }
   }
 
   return <section className="editor-panel">
     <div className="editor-heading"><div><span className="eyebrow">{isWorker ? "TU PERFIL PROFESIONAL" : "GESTIONA TU NEGOCIO"}</span><h2>{isWorker ? "Una buena primera impresión." : "Tu próxima contratación empieza aquí."}</h2></div><CloseButton className="icon-close" onClick={onCancel} label="Cerrar editor"/></div>
-    {!isWorker && <section className="offer-manager"><div className="offer-manager-title"><BriefcaseBusiness size={17}/><b>Mis ofertas</b><button type="button" className="text-action" onClick={() => { setCreatingOffer(true); setFocusedOfferId(""); onSelectOffer(""); }}><Plus size={15}/> Nueva oferta</button></div>
-      {offers.length > 0 && <div className="offer-manager-list">{offers.map((offer) => <div className={`managed-offer ${focusedOfferId === offer.id ? "selected" : ""}`} key={offer.id}><button type="button" className="managed-offer-main" onClick={() => { setFocusedOfferId(offer.id); setCreatingOffer(false); onSelectOffer(offer.id); }}><span className={`status-dot ${offer.is_active ? "online" : "offline"}`}/><span><b>{offer.position}</b><small>{offer.business_name} · {offer.is_active ? "Activa" : "Pausada"}</small></span><ChevronDown size={15}/></button><button type="button" className="text-action" onClick={() => onToggleOffer(offer)}>{offer.is_active ? "Pausar" : "Reactivar"}</button></div>)}</div>}
+    {!isWorker && <section className="offer-manager"><div className="offer-manager-title"><BriefcaseBusiness size={17}/><b>Mis ofertas</b><span className="offer-plan-count">{isPro ? `${activeOffersCount} activas · ilimitadas` : `${activeOffersCount} / 3 activas`}</span><button type="button" className="text-action" onClick={() => { if (atFreeOfferLimit) { setLimitReached(true); return; } setCreatingOffer(true); setFocusedOfferId(""); onSelectOffer(""); }}><Plus size={15}/> Nueva oferta</button></div>
+      {limitReached && <div className="offer-limit-notice" role="alert"><b>Ya tienes 3 ofertas activas</b><p>Con Job Match Pro puedes publicar ofertas sin límite por 19,99 €/mes.</p><div><button type="button" className="quiet-button" onClick={() => setLimitReached(false)}>Ahora no</button><button type="button" className="primary-button" onClick={onUpgrade}>Ver Job Match Pro</button></div></div>}
+      {offers.length > 0 && <div className="offer-manager-list">{offers.map((offer) => <div className={`managed-offer ${focusedOfferId === offer.id ? "selected" : ""}`} key={offer.id}><button type="button" className="managed-offer-main" onClick={() => { setFocusedOfferId(offer.id); setCreatingOffer(false); onSelectOffer(offer.id); }}><span className={`status-dot ${offer.is_active ? "online" : "offline"}`}/><span><b>{offer.position}</b><small>{offer.business_name} · {offer.is_active ? "Activa" : "Pausada"}</small></span><ChevronDown size={15}/></button><div className="managed-offer-actions">{offer.is_active && !offer.is_demo && new Date(offer.expires_at).getTime() > Date.now() && <OfferBoostButton offer={offer} onError={setError}/>}<button type="button" className="text-action" onClick={() => onToggleOffer(offer)}>{offer.is_active ? "Pausar" : "Reactivar"}</button></div></div>)}</div>}
     </section>}
     <form className="editor-form" onSubmit={save}>
       <div className="identity-row"><button type="button" className="avatar-picker" onClick={() => avatarInput.current?.click()} aria-label="Elegir foto"><span className="avatar-preview" style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}>{avatarUrl ? null : isWorker ? "JM" : "＋"}</span><span className="camera-badge"><Camera size={15}/></span></button><input ref={avatarInput} className="hidden-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => choosePhoto(event.target.files?.[0])}/><div><b>{isWorker ? "Foto de perfil" : "Logo o foto del negocio"}</b><small>Encuadre circular automático · JPG, PNG o WebP</small></div></div>

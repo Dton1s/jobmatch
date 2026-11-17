@@ -149,9 +149,10 @@ Los scripts SQL pertenecen a esta app:
 - `supabase/fix_storage_cv.sql`, `supabase/fix_storage_all.sql`: políticas y configuración del bucket; lee la nota de seguridad antes de aplicar o reutilizar estas políticas.
 - `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
 - `supabase/upgrade_monetization.sql`: columnas de Boost y Pro, historial idempotente de eventos Stripe, protección de campos de pago y RPC para contacto directo Pro. Aplícalo una vez en el SQL Editor del proyecto antes de habilitar cobros.
-- `supabase/seed_demo.sql`: crea ocho ofertas y ocho candidatos ficticios de Torrevieja/Alicante, identificados como `is_demo`.
+- `supabase/free_offer_limit.sql`: aplica el máximo de tres ofertas activas en el plan gratuito y deja ilimitadas las empresas con Pro vigente. Ejecútalo en el SQL Editor de Supabase.
+- `supabase/remove_demo_data.sql`: elimina exclusivamente filas marcadas `is_demo=true` y sus relaciones dependientes. Revísalo y ejecútalo en Supabase si hay datos de demostración antiguos.
 
-Para una base nueva, ejecuta `schema.sql`, después `legal_and_delete_account.sql` y, si quieres, `seed_demo.sql`. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
+Para una base nueva, ejecuta `schema.sql` y las migraciones incrementales aplicables, incluidas `legal_and_delete_account.sql` y `free_offer_limit.sql`. No se mantienen semillas ficticias para producción. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
 
 Antes de desplegar el modo de rol único/dual en una base existente, ejecuta `supabase/upgrade_role_modes.sql` al final de las migraciones anteriores. Añade `enabled_roles`, conserva el rol principal existente y aplica RLS para que las fichas y ofertas solo sean visibles en descubrimiento mientras su modo está habilitado.
 
@@ -173,6 +174,7 @@ Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura
 
 ### Monetización de empresa
 
+- **Plan gratuito:** hasta 3 ofertas activas simultáneamente. Al llegar al límite, la interfaz explica Job Match Pro y la base de datos aplica el mismo máximo mediante el trigger de `supabase/free_offer_limit.sql`.
 - **Boost:** pago único de 7,99 €; Stripe activa el destaque durante 7 días. Las ofertas Boost vigentes aparecen primero a trabajadores que buscan ofertas.
 - **Job Match Pro:** 19,99 €/mes; Stripe mantiene `is_pro` y `pro_expires_at` según el estado y periodo real de la suscripción. Las empresas Pro pueden iniciar conversaciones directas con candidatos reales desde el detalle de la ficha.
 - Las funciones Vercel están en `api/checkout/boost.ts`, `api/checkout/subscription.ts` y `api/webhooks/stripe.ts`. El webhook valida la firma Stripe, y la clave `service_role` solo se usa en backend.
@@ -181,7 +183,7 @@ Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura
 
 ### Impulso de perfil de trabajador
 
-- **Precio y vigencia:** pago único de 1,99 € para impulsar una ficha de trabajador durante 7 días. Las fichas impulsadas vigentes se priorizan en el mazo de descubrimiento de empresas.
+- **Precio y vigencia:** pago único de 1,99 € para impulsar una ficha de trabajador durante 7 días. Las fichas impulsadas vigentes se priorizan en la búsqueda de empresas.
 - **Checkout:** `api/checkout/worker-boost.ts` valida sesión y modo Trabajador en servidor, y crea la sesión Stripe con `user_id` en metadata. El webhook activa el impulso mediante `jobmatch_apply_worker_boost`, con deduplicación de eventos Stripe.
 - **Interfaz:** el panel `Perfil y ajustes` del modo Trabajador muestra si el impulso está activo y cuánto tiempo queda. El Checkout se oculta en Android hasta integrar Google Play Billing.
 - **Migración Supabase:** aplica `supabase/upgrade_worker_boost.sql` una vez en el proyecto conectado. El script añade campos de vigencia, impide cambios de entitlement desde clientes autenticados y habilita el RPC solo para `service_role`. `supabase/schema.sql` también incluye el esquema para instalaciones nuevas.
