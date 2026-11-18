@@ -3,8 +3,9 @@ import { GoogleAuth } from "google-auth-library";
 import { GOOGLE_PLAY_PACKAGE_NAME, GOOGLE_PLAY_PRODUCTS } from "../../src/lib/google-play-products.js";
 import { requireCompany, requireWorker } from "../../src/lib/server/billing.js";
 
-type PlayProductPurchase = {
-  purchaseState?: number;
+type PlayProductPurchaseV2 = {
+  purchaseStateContext?: { purchaseState?: string };
+  productLineItem?: Array<{ productId?: string; productOfferDetails?: { purchaseOptionId?: string } }>;
   acknowledgementState?: number;
   obfuscatedExternalAccountId?: string;
 };
@@ -97,8 +98,16 @@ export async function POST(request: Request): Promise<Response> {
         if (!card || !card.is_active || card.is_demo) return responseError("Publica una ficha activa para poder impulsarla.", 404);
         resourceId = card.id;
       }
-      const purchase = await playApiRequest<PlayProductPurchase>(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${GOOGLE_PLAY_PACKAGE_NAME}/purchases/products/${productId}/tokens/${encodeURIComponent(purchaseToken)}`);
-      if (purchase.purchaseState !== 0 || purchase.obfuscatedExternalAccountId !== expectedAccountId) return responseError("Google Play no confirma un pago completado para esta cuenta.", 422);
+      const purchase = await playApiRequest<PlayProductPurchaseV2>(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${GOOGLE_PLAY_PACKAGE_NAME}/purchases/productsv2/tokens/${encodeURIComponent(purchaseToken)}`);
+      const expectedPurchaseOptionId = kind === "offer_boost"
+        ? GOOGLE_PLAY_PRODUCTS.offerBoost.purchaseOptionId
+        : GOOGLE_PLAY_PRODUCTS.workerBoost.purchaseOptionId;
+      const lineItem = purchase.productLineItem?.find((item) => item.productId === productId
+        && item.productOfferDetails?.purchaseOptionId === expectedPurchaseOptionId);
+      if (purchase.purchaseStateContext?.purchaseState !== "PURCHASED" || !lineItem
+        || purchase.obfuscatedExternalAccountId !== expectedAccountId) {
+        return responseError("Google Play no confirma un pago completado para este producto, opción y cuenta.", 422);
+      }
     }
 
     const { error } = await authorized.admin.rpc("jobmatch_apply_google_play_purchase", {

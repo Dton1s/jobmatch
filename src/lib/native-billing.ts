@@ -16,6 +16,7 @@ function productConfig(kind: GooglePlayPurchaseKind) {
 
 function findProduct(kind: GooglePlayPurchaseKind, products: Product[]): Product | undefined {
   const config = productConfig(kind);
+  // The installed Capacitor plugin exposes the backward-compatible one-time option only.
   return kind === "pro"
     ? products.find((item) => item.planIdentifier === config.productId && item.identifier === GOOGLE_PLAY_PRODUCTS.pro.basePlanId)
     : products.find((item) => item.identifier === config.productId);
