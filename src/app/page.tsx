@@ -17,6 +17,7 @@ import { CloseButton } from "@/components/CloseButton";
 import { LocationPicker, type LocationValue } from "@/components/LocationPicker";
 import { SwipeDeck, type DeckCard } from "@/components/SwipeDeck";
 import { isNativePlatform } from "@/lib/platform";
+import { ACCOUNT_STORAGE_BUCKETS, accountStoragePrefixes } from "@/lib/cv-storage";
 import { supabase, type JobOffer, type Match, type Profile, type Role, type SwipeDirection, type WorkerCard } from "@/lib/supabase";
 
 type View = "discover" | "matches";
@@ -77,7 +78,7 @@ export default function HomePage() {
   const swipeSequence = useRef(0);
   const [checkoutHandled,setCheckoutHandled] = useState(false);
 
-  async function submitReport(targetType:"profile"|"offer",targetId:string,reportedUserId:string|null,reason:string,details:string){
+  async function submitReport(targetType:"profile"|"offer"|"message",targetId:string,reportedUserId:string|null,reason:string,details:string){
     if(!supabase||!profile)throw new Error("Inicia sesión para enviar una denuncia.");
     const {error}=await supabase.from("jobmatch_user_reports").insert({reporter_id:profile.id,reported_user_id:reportedUserId,target_type:targetType,target_id:targetId,reason,details:details.trim()||null});
     if(error)throw error;
@@ -97,6 +98,10 @@ export default function HomePage() {
     await submitReport("profile",otherUserId,otherUserId,reason,details);
     setHiddenModerationTargets((current)=>new Set(current).add(`profile:${otherUserId}`));
     setCards((current)=>current.filter((item)=>!("user_id" in item?item.user_id:item.company_id) || ("user_id" in item?item.user_id:item.company_id)!==otherUserId));
+  }
+
+  async function reportChatMessage(messageId:string,senderId:string,reason:string,details:string){
+    await submitReport("message",messageId,senderId,reason,details);
   }
 
   async function blockChatUser(otherUserId:string){
@@ -424,9 +429,9 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
     if(!supabase||!profile||deleteAccountBusy)return;
     setDeleteAccountBusy(true);setDeleteAccountError("");
     try{
-      for(const bucketName of ["jobmatch-media","jobmatch-cvs"]){
+      for(const bucketName of ACCOUNT_STORAGE_BUCKETS){
         const storage=supabase.storage.from(bucketName);
-        const files:string[]=[];
+        const files=new Set<string>();
         async function collect(folder:string,depth=0):Promise<void>{
           if(depth>8)throw new Error("La carpeta de archivos tiene una estructura inesperada.");
           for(let offset=0;;offset+=1000){
@@ -435,14 +440,15 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
             const entries=data??[];
             for(const item of entries){
               const path=`${folder}/${item.name}`;
-              if(item.id===null)await collect(path,depth+1);else files.push(path);
+              if(item.id===null)await collect(path,depth+1);else files.add(path);
             }
             if(entries.length<1000)break;
           }
         }
-        await collect(profile.id);
-        for(let index=0;index<files.length;index+=100){
-          const {error}=await storage.remove(files.slice(index,index+100));
+        for(const prefix of accountStoragePrefixes(bucketName,profile.id))await collect(prefix);
+        const paths=[...files];
+        for(let index=0;index<paths.length;index+=100){
+          const {error}=await storage.remove(paths.slice(index,index+100));
           if(error)throw error;
         }
       }
@@ -470,7 +476,7 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
       <div className={deckVisible?"deck-view":"deck-view is-hidden"}>
         <SwipeDeck role={profile.role} offer={selectedOffer} distance={distance} cards={cards} loading={loading} undoAvailable={Boolean(undo)} isPro={Boolean(profile.is_pro&&profile.pro_expires_at&&new Date(profile.pro_expires_at).getTime()>Date.now())} visible={deckVisible} onContactDirect={(card)=>void startProChat(card)} pausedOffer={offers.find((item)=>!item.is_active)??null} onActivateOffer={(offer)=>void toggleOffer(offer)} onUndo={()=>void undoLast()} onSwipe={(card,direction)=>void decide(card,direction)} onCreateOffer={openOfferManager} onShowFilters={()=>setFiltersOpen(true)} onModalOpen={()=>setNotice("")} onReport={reportDeckCard}/>
       </div>
-      {!deckVisible&&(activeMatch?<MatchChat match={activeMatch} profile={profile} onClose={()=>setActiveMatch(null)} onActivity={refreshMatches} onViewProfile={()=>setProfileMatch(activeMatch)} onReportUser={reportChatUser} onBlockUser={blockChatUser}/>:<MatchesView matches={matches} profile={profile} onOpen={(match)=>void markMatchRead(match)} onViewProfile={setProfileMatch}/>)}
+      {!deckVisible&&(activeMatch?<MatchChat match={activeMatch} profile={profile} onClose={()=>setActiveMatch(null)} onActivity={refreshMatches} onViewProfile={()=>setProfileMatch(activeMatch)} onReportUser={reportChatUser} onReportMessage={reportChatMessage} onBlockUser={blockChatUser}/>:<MatchesView matches={matches} profile={profile} onOpen={(match)=>void markMatchRead(match)} onViewProfile={setProfileMatch}/>)}
     </div>
     <nav className="mobile-bottom-nav"><button className={view==="discover"?"active":""} onClick={()=>{setView("discover");setActiveMatch(null);}}><Compass/><span>Descubrir</span></button><button className={view==="matches"?"active":""} onClick={()=>{setView("matches");setActiveMatch(null);}}><MessageCircle/><span>Conexiones</span>{matches.some((match)=>match.unread)&&<i/>}</button><button onClick={()=>setSettingsOpen(true)}><UserRound/><span>Mi perfil</span></button></nav>
     <AnimatePresence>{filtersOpen&&<motion.div className="drawer-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setFiltersOpen(false)}><motion.aside className="filter-drawer" initial={{x:"100%"}} animate={{x:0}} exit={{x:"100%"}} transition={{type:"spring",damping:30,stiffness:280}} onClick={(event)=>event.stopPropagation()}><div className="drawer-heading"><div><span className="eyebrow">DESCUBRIR MEJOR</span><h2>Filtros</h2></div><CloseButton className="icon-close" onClick={()=>setFiltersOpen(false)} label="Cerrar filtros"/></div><LocationPicker value={searchLocation} onChange={setSearchLocation} onError={setNotice}/><div className="distance-presets" role="group" aria-label="Rango de distancia"><button className={distance<=10?"selected":""} onClick={()=>setDistance(10)}>Cerca<small>Hasta 10 km</small></button><button className={distance>10&&distance<=25?"selected":""} onClick={()=>setDistance(25)}>Media<small>10–25 km</small></button><button className={distance>25?"selected":""} onClick={()=>setDistance(50)}>Lejos<small>Más de 25 km</small></button></div><label className="filter-control"><span>Distancia máxima <b>{distance} km</b></span><input type="range" min="1" max="50" step="1" value={distance} onChange={(event)=>setDistance(Number(event.target.value))}/><small>Afina el radio desde 1 hasta 50 km.</small></label><label className="filter-control">Sector<select value={sector} onChange={(event)=>setSector(event.target.value)}><option>Todos los sectores</option>{["Hostelería","Comercio","Logística","Atención al cliente","Limpieza","Administración","Construcción","Sanidad","Tecnología","Otro"].map((item)=><option key={item}>{item}</option>)}</select></label>{profile.role==="worker"?<label className="filter-control">Salario mínimo mensual<input type="number" min="0" step="50" value={minSalary} onChange={(event)=>setMinSalary(Number(event.target.value))} placeholder="Sin mínimo"/></label>:<label className="filter-control">Disponibilidad<select value={availability} onChange={(event)=>setAvailability(event.target.value)}><option>Todas las disponibilidades</option><option value="inmediata">Incorporación inmediata</option><option value="fines_de_semana">Fines de semana</option><option value="media_jornada">Media jornada</option><option value="completa">Jornada completa</option></select></label>}{profile.role==="worker"&&<label className="filter-control">Jornada<select value={availability} onChange={(event)=>setAvailability(event.target.value)}><option>Todas las disponibilidades</option><option>Jornada completa</option><option>Media jornada</option><option>Fines de semana</option><option>Turnos rotativos</option></select></label>}<button className="primary-button drawer-apply" onClick={()=>setFiltersOpen(false)}><SlidersHorizontal size={16}/> Ver resultados</button><button className="quiet-button drawer-clear" onClick={()=>{setDistance(25);setSector("Todos los sectores");setMinSalary(0);setAvailability("Todas las disponibilidades");setSearchLocation({city:"",province:"",postal:"",lat:profile?.lat??null,lng:profile?.lng??null});}}>Limpiar filtros</button></motion.aside></motion.div>}</AnimatePresence>

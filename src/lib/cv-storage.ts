@@ -2,6 +2,11 @@ import { supabase } from "@/lib/supabase";
 
 export const PRIVATE_CV_BUCKET = "jobmatch-cvs";
 export const PRIVATE_CV_PREFIX = `${PRIVATE_CV_BUCKET}:`;
+export const ACCOUNT_STORAGE_BUCKETS = ["jobmatch-media", "jobmatch-cvs"] as const;
+
+export function accountStoragePrefixes(bucket: typeof ACCOUNT_STORAGE_BUCKETS[number], ownerId: string) {
+  return bucket === "jobmatch-cvs" ? [ownerId, `cv/${ownerId}`] : [ownerId];
+}
 
 type CvObject = { bucket: typeof PRIVATE_CV_BUCKET | "jobmatch-media"; path: string };
 

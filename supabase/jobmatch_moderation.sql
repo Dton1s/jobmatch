@@ -12,7 +12,7 @@ create table if not exists public.jobmatch_user_reports (
   reported_user_id uuid references public.jobmatch_profiles(id) on delete set null,
   target_type text not null check (target_type in ('profile','offer','message')),
   target_id uuid not null,
-  reason text not null check (reason in ('contenido inapropiado','spam/estafa','oferta falsa','suplantación')),
+  reason text not null check (reason in ('contenido inapropiado','spam/estafa','oferta falsa','suplantación','contenido ofensivo o acoso','oferta o datos falsos','otro motivo')),
   details text check (details is null or length(details) <= 1000),
   review_status text not null default 'pending' check (review_status in ('pending','reviewing','resolved','dismissed')),
   reviewed_at timestamptz,

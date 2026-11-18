@@ -9,7 +9,11 @@ const companyReplies=["¿Cuándo podrías hacer una prueba?","¿Tienes disponibi
 const workerReplies=["¡Hola! Me interesa mucho el puesto","Tengo disponibilidad inmediata","¿Cuál es el horario exacto?"];
 type InterviewDraft={date:string;time:string;place:string};
 
-export function MatchChat({match,profile,onClose,onActivity,onViewProfile,onReportUser,onBlockUser}:{match:Match;profile:Profile;onClose:()=>void;onActivity:()=>void;onViewProfile:()=>void;onReportUser:(otherUserId:string,reason:string,details:string)=>Promise<void>;onBlockUser:(otherUserId:string)=>Promise<void>}){
+const messageReportReasons=["contenido ofensivo o acoso","spam/estafa","oferta o datos falsos","otro motivo"] as const;
+function hiddenMessagesKey(userId:string,matchId:string){return "jobmatch:hidden-messages:v1:"+userId+":"+matchId;}
+function readHiddenMessageIds(userId:string,matchId:string){try{const parsed=JSON.parse(localStorage.getItem(hiddenMessagesKey(userId,matchId))??"[]");return new Set<string>(Array.isArray(parsed)?parsed.filter((id):id is string=>typeof id==="string"):[]);}catch{return new Set<string>();}}
+
+export function MatchChat({match,profile,onClose,onActivity,onViewProfile,onReportUser,onReportMessage,onBlockUser}:{match:Match;profile:Profile;onClose:()=>void;onActivity:()=>void;onViewProfile:()=>void;onReportUser:(otherUserId:string,reason:string,details:string)=>Promise<void>;onReportMessage:(messageId:string,senderId:string,reason:string,details:string)=>Promise<void>;onBlockUser:(otherUserId:string)=>Promise<void>}){
   const [messages,setMessages]=useState<Message[]>([]);
   const [body,setBody]=useState("");
   const [busy,setBusy]=useState(false);
@@ -23,6 +27,11 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile,onRepo
   const [reportReason,setReportReason]=useState("contenido inapropiado");
   const [reportDetails,setReportDetails]=useState("");
   const [moderationBusy,setModerationBusy]=useState(false);
+  const [hiddenMessageIds,setHiddenMessageIds]=useState<Set<string>>(()=>new Set());
+  const [messageMenuId,setMessageMenuId]=useState<string|null>(null);
+  const [reportMessage,setReportMessage]=useState<Message|null>(null);
+  const [messageReportReason,setMessageReportReason]=useState<(typeof messageReportReasons)[number]>(messageReportReasons[0]);
+  const [messageReportDetails,setMessageReportDetails]=useState("");
   const otherUserId=profile.role==="worker"?match.company_id:match.worker_id;
   const replies=profile.role==="company"?companyReplies:workerReplies;
   const grouped=useMemo(()=>messages.map((message,index)=>({message,showTime:index===0||new Date(messages[index-1].created_at).getHours()!==new Date(message.created_at).getHours()||new Date(messages[index-1].created_at).getDate()!==new Date(message.created_at).getDate()})),[messages]);
@@ -40,23 +49,40 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile,onRepo
   useEffect(()=>{
     if(!supabase)return;
     let alive=true;
-    void supabase.from("jobmatch_messages").select("*").eq("match_id",match.id).order("created_at").then(({data})=>{if(alive)setMessages((data??[]) as Message[]);});
+    const hidden=readHiddenMessageIds(profile.id,match.id);
+    setHiddenMessageIds(hidden);
+    setMessages([]);
+    void supabase.from("jobmatch_messages").select("*").eq("match_id",match.id).order("created_at").then(({data})=>{if(alive)setMessages(((data??[]) as Message[]).filter((message)=>!hidden.has(message.id)));});
     void supabase.rpc("jobmatch_mark_match_read",{p_match_id:match.id}).then(({error})=>{
       if(alive&&error&&/chat unavailable|match not found/i.test(error.message)){onActivity();onClose();}
     });
     const channel=supabase.channel(`jobmatch-chat-${match.id}`,{config:{presence:{key:profile.id}}})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"jobmatch_messages",filter:`match_id=eq.${match.id}`},(payload)=>{
-        const next=payload.new as Message;setMessages((current)=>current.some((message)=>message.id===next.id)?current:[...current,next]);
+        const next=payload.new as Message;if(!hidden.has(next.id))setMessages((current)=>current.some((message)=>message.id===next.id)?current:[...current,next]);
         if(next.sender_id!==profile.id)void supabase?.rpc("jobmatch_mark_match_read",{p_match_id:match.id});
         onActivity();
       })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"jobmatch_messages",filter:`match_id=eq.${match.id}`},(payload)=>{
-        const next=payload.new as Message;setMessages((current)=>current.map((message)=>message.id===next.id?next:message));
+        const next=payload.new as Message;if(!hidden.has(next.id))setMessages((current)=>current.map((message)=>message.id===next.id?next:message));
       })
       .on("presence",{event:"sync"},()=>setOnline(Object.keys(channel.presenceState()).length>1))
       .subscribe(async(status)=>{if(status==="SUBSCRIBED")await channel.track({online_at:new Date().toISOString()});});
     return()=>{alive=false;void supabase?.removeChannel(channel);};
   },[match.id,profile.id,onActivity]);
+
+  function hideMessage(messageId:string){
+    const next=new Set(hiddenMessageIds);next.add(messageId);setHiddenMessageIds(next);
+    try{localStorage.setItem(hiddenMessagesKey(profile.id,match.id),JSON.stringify([...next]));}catch{/* Keep the current view updated if storage is unavailable. */}
+    setMessages((current)=>current.filter((message)=>message.id!==messageId));setMessageMenuId(null);
+  }
+
+  async function submitMessageReport(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(!reportMessage||moderationBusy)return;
+    setModerationBusy(true);setError("");
+    try{await onReportMessage(reportMessage.id,reportMessage.sender_id,messageReportReason,messageReportDetails);setReportMessage(null);setMessageReportDetails("");setError("Hemos recibido la denuncia. Gracias por ayudarnos a mantener la comunidad segura.");}
+    catch(cause){setError(cause instanceof Error?cause.message:"No se pudo enviar la denuncia.");}
+    finally{setModerationBusy(false);}
+  }
 
   async function send(event?:FormEvent,text=body,type:Message["message_type"]="text",metadata:Record<string,unknown>={}){
     event?.preventDefault();const content=text.trim();if(!content||busy||!supabase)return false;
@@ -83,17 +109,18 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile,onRepo
   }
 
   return <section className="chat-panel">
-    <header className="chat-header"><button className="chat-back" onClick={onClose} aria-label="Volver a conexiones"><ArrowLeft size={18}/></button><button className="chat-profile-trigger" onClick={onViewProfile} aria-label={`Ver perfil de ${match.other_name}`}><span className="chat-avatar" style={match.other_photo?{backgroundImage:`url(${match.other_photo})`}:undefined}>{match.other_photo?null:match.other_name?.slice(0,1)}</span></button><div className="chat-contact"><button className="chat-name-trigger" onClick={onViewProfile}>{match.other_name}</button><button onClick={()=>setError(`Puesto del match: ${match.position}`)}>{match.position} <span>· vinculado</span></button></div><span className={`presence-pill ${online?"live":""}`}><i/>{online?"En línea":"Disponible"}</span><div className="chat-moderation"><button type="button" className="chat-moderation-trigger" aria-label="Opciones de conversación" aria-expanded={actionsOpen} onClick={()=>setActionsOpen((value)=>!value)}><MoreVertical size={19}/></button>{actionsOpen&&<div className="chat-moderation-menu"><button type="button" onClick={()=>{setActionsOpen(false);setReportOpen(true);}}><Flag size={15}/> Denunciar usuario</button><button type="button" onClick={()=>{setActionsOpen(false);if(window.confirm(`¿Bloquear a ${match.other_name}? Se cerrará el chat y dejarás de ver su perfil y ofertas.`)){setModerationBusy(true);void onBlockUser(otherUserId).catch((cause)=>setError(cause instanceof Error?cause.message:"No se pudo bloquear al usuario.")).finally(()=>setModerationBusy(false));}}} disabled={moderationBusy}><Ban size={15}/> Bloquear usuario</button></div>}</div></header>
+    <header className="chat-header"><button className="chat-back" onClick={onClose} aria-label="Volver a conexiones"><ArrowLeft size={18}/></button><button className="chat-profile-trigger" onClick={onViewProfile} aria-label={`Ver perfil de ${match.other_name}`}><span className="chat-avatar" style={match.other_photo?{backgroundImage:`url(${match.other_photo})`}:undefined}>{match.other_photo?null:match.other_name?.slice(0,1)}</span></button><div className="chat-contact"><button className="chat-name-trigger" onClick={onViewProfile}>{match.other_name}</button><span className="chat-contact-subtitle"><span className="chat-contact-position">{match.position}</span><span aria-hidden="true">·</span><span className={`chat-contact-status ${online?"live":""}`}><i/>{online?"En línea":"Disponible"}</span><span>· vinculado</span></span></div><div className="chat-moderation"><button type="button" className="chat-moderation-trigger" aria-label="Opciones de conversación" aria-expanded={actionsOpen} onClick={()=>setActionsOpen((value)=>!value)}><MoreVertical size={19}/></button>{actionsOpen&&<div className="chat-moderation-menu"><button type="button" onClick={()=>{setActionsOpen(false);setReportOpen(true);}}><Flag size={15}/> Denunciar usuario</button><button type="button" onClick={()=>{setActionsOpen(false);if(window.confirm(`¿Bloquear a ${match.other_name}? Se cerrará el chat y dejarás de ver su perfil y ofertas.`)){setModerationBusy(true);void onBlockUser(otherUserId).catch((cause)=>setError(cause instanceof Error?cause.message:"No se pudo bloquear al usuario.")).finally(()=>setModerationBusy(false));}}} disabled={moderationBusy}><Ban size={15}/> Bloquear usuario</button></div>}</div></header>
     {reportOpen&&<div className="chat-report-panel"><div><AlertTriangle size={16}/><b>Denunciar a {match.other_name}</b><button type="button" onClick={()=>setReportOpen(false)} aria-label="Cerrar denuncia"><X size={15}/></button></div><form onSubmit={async(event)=>{event.preventDefault();if(moderationBusy)return;setModerationBusy(true);setError("");try{await onReportUser(otherUserId,reportReason,reportDetails);setReportOpen(false);setError("Hemos recibido la denuncia. Gracias por ayudarnos a mantener la comunidad segura.");}catch(cause){setError(cause instanceof Error?cause.message:"No se pudo enviar la denuncia.");}finally{setModerationBusy(false);}}}><label>Motivo<select value={reportReason} onChange={(event)=>setReportReason(event.target.value)}><option value="contenido inapropiado">Contenido inapropiado</option><option value="spam/estafa">Spam o estafa</option><option value="oferta falsa">Oferta falsa</option><option value="suplantación">Suplantación</option></select></label><label>Detalles (opcional)<textarea rows={2} maxLength={1000} value={reportDetails} onChange={(event)=>setReportDetails(event.target.value)}/></label><button className="primary-button" disabled={moderationBusy}>{moderationBusy?"Enviando…":"Enviar denuncia"}</button></form></div>}
     <div className="chat-context"><span><Check size={13}/> Match profesional</span><b>{match.position}</b></div>
     <div className="chat-messages" aria-live="polite">{messages.length===0&&<div className="chat-welcome"><span className="eyebrow">CONVERSACIÓN INICIADA</span><h3>¡Ya estáis conectados!</h3><p>Saluda, comparte tu disponibilidad o proponed un momento para hablar.</p></div>}{grouped.map(({message,showTime})=><div className="message-group" key={message.id}>{showTime&&<div className="chat-time-divider">{new Date(message.created_at).toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"short"})} · {new Date(message.created_at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</div>}<article className={`chat-bubble ${message.sender_id===profile.id?"mine":"theirs"}`}>
       {message.message_type==="interview"?<InterviewCard message={message} response={interviewReplies.get(message.id)} userId={profile.id} superseded={supersededInterviews.has(message.id)} onConfirm={()=>replyToInterview(message,"confirmed")} onCancel={()=>replyToInterview(message,"cancelled")} onReschedule={()=>{const meta=message.metadata as InterviewDraft;setRescheduleMessage(message);setInvite({...meta});setInviteOpen(true);}}/>:message.message_type==="interview_reply"?<div className="interview-reply"><CalendarPlus size={15}/><span>{message.body}</span></div>:<p>{message.body}</p>}
-      <time>{new Date(message.created_at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}{message.sender_id===profile.id&&<span className="message-check">{message.read_at?<><CheckCheck size={13}/> Leído</>:<><CheckCheck size={13}/> Enviado</>}</span>}</time>
+      <div className="chat-bubble-footer"><time>{new Date(message.created_at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}{message.sender_id===profile.id&&<span className="message-check">{message.read_at?<><CheckCheck size={13}/> Leído</>:<><CheckCheck size={13}/> Enviado</>}</span>}</time><div className="message-actions"><button type="button" aria-label="Opciones del mensaje" aria-expanded={messageMenuId===message.id} onClick={()=>setMessageMenuId((current)=>current===message.id?null:message.id)}><MoreVertical size={15}/></button>{messageMenuId===message.id&&<div className="message-actions-menu"><button type="button" onClick={()=>hideMessage(message.id)}>Eliminar mensaje</button>{message.sender_id!==profile.id&&<button type="button" onClick={()=>{setMessageMenuId(null);setMessageReportReason(messageReportReasons[0]);setMessageReportDetails("");setReportMessage(message);}}>Denunciar mensaje</button>}</div>}</div></div>
     </article></div>)}</div>
     {profile.role==="company"&&<div className="quick-replies">{replies.map((reply)=><button key={reply} onClick={()=>void send(undefined,reply)}>{reply}</button>)}</div>}
     {profile.role==="worker"&&<div className="quick-replies">{replies.map((reply)=><button key={reply} onClick={()=>void send(undefined,reply)}>{reply}</button>)}</div>}
     {error&&<p className="chat-error" role="alert">{error}<button onClick={()=>setError("")} aria-label="Cerrar aviso"><X size={13}/></button></p>}
     {inviteOpen&&<div className="interview-backdrop" onClick={()=>{setInviteOpen(false);setRescheduleMessage(null);}}><form className="interview-form" onSubmit={sendInterview} onClick={(event)=>event.stopPropagation()}><div className="sheet-handle"/><div className="interview-form-title"><span><CalendarPlus size={17}/> {rescheduleMessage?"Proponer otra hora":"Proponer entrevista"}</span><CloseButton className="close-control" onClick={()=>{setInviteOpen(false);setRescheduleMessage(null);}} label="Cerrar propuesta de entrevista"/></div><div className="form-two"><label>Día<input type="date" min={new Date().toISOString().slice(0,10)} value={invite.date} onChange={(event)=>setInvite({...invite,date:event.target.value})} required/></label><label>Hora<input type="time" value={invite.time} onChange={(event)=>setInvite({...invite,time:event.target.value})} required/></label></div><label>Dirección o teléfono<input value={invite.place} onChange={(event)=>setInvite({...invite,place:event.target.value})} placeholder="Calle, local o teléfono" required/></label><button className="primary-button" disabled={busy}><Send size={14}/> {rescheduleMessage?"Enviar nueva hora":"Enviar propuesta"}</button></form></div>}
+    {reportMessage&&<div className="message-report-backdrop" role="presentation" onClick={()=>setReportMessage(null)}><section className="message-report-modal" role="dialog" aria-modal="true" aria-labelledby="message-report-title" onClick={(event)=>event.stopPropagation()}><div className="message-report-heading"><span className="message-report-icon"><Flag size={18}/></span><button type="button" aria-label="Cerrar denuncia" onClick={()=>setReportMessage(null)}><X size={17}/></button></div><span className="eyebrow">SEGURIDAD DE LA COMUNIDAD</span><h2 id="message-report-title">Denunciar mensaje</h2><p>Cuéntanos qué ocurre. Revisaremos el mensaje y la conversación.</p><form onSubmit={(event)=>void submitMessageReport(event)}><label>Motivo<select value={messageReportReason} onChange={(event)=>setMessageReportReason(event.target.value as (typeof messageReportReasons)[number])}>{messageReportReasons.map((reason)=>{const label=reason==="contenido ofensivo o acoso"?"Contenido ofensivo o acoso":reason==="spam/estafa"?"Spam o estafa":reason==="oferta o datos falsos"?"Oferta o datos falsos":"Otro motivo";return <option key={reason} value={reason}>{label}</option>;})}</select></label><label>Contexto (opcional)<textarea rows={4} maxLength={1000} value={messageReportDetails} onChange={(event)=>setMessageReportDetails(event.target.value)} placeholder="Añade información que pueda ayudar a revisar la denuncia"/></label><div className="message-report-actions"><button type="button" className="quiet-button" onClick={()=>setReportMessage(null)}>Cancelar</button><button type="submit" className="primary-button" disabled={moderationBusy}>{moderationBusy?"Enviando…":"Enviar denuncia"}</button></div></form></section></div>}
     <div className="chat-compose"><button className="interview-launch" onClick={()=>setInviteOpen(!inviteOpen)} aria-label="Proponer entrevista"><CalendarDays size={16}/><span>Cita</span></button><form onSubmit={(event)=>void send(event)}><input value={body} onChange={(event)=>setBody(event.target.value)} placeholder="Escribe un mensaje…" maxLength={2000}/><button aria-label="Enviar mensaje" disabled={busy||!body.trim()}><Send size={17}/></button></form></div>
   </section>;
 }
