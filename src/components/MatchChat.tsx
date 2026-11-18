@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, CalendarDays, CalendarPlus, Check, CheckCheck, Clock3, MapPin, Send, Video, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, CalendarDays, CalendarPlus, Check, CheckCheck, Clock3, Flag, MapPin, MoreVertical, Send, Video, X } from "lucide-react";
 import { supabase, type Match, type Message, type Profile } from "@/lib/supabase";
 import { CloseButton } from "@/components/CloseButton";
 
@@ -9,7 +9,7 @@ const companyReplies=["¿Cuándo podrías hacer una prueba?","¿Tienes disponibi
 const workerReplies=["¡Hola! Me interesa mucho el puesto","Tengo disponibilidad inmediata","¿Cuál es el horario exacto?"];
 type InterviewDraft={date:string;time:string;place:string};
 
-export function MatchChat({match,profile,onClose,onActivity,onViewProfile}:{match:Match;profile:Profile;onClose:()=>void;onActivity:()=>void;onViewProfile:()=>void}){
+export function MatchChat({match,profile,onClose,onActivity,onViewProfile,onReportUser,onBlockUser}:{match:Match;profile:Profile;onClose:()=>void;onActivity:()=>void;onViewProfile:()=>void;onReportUser:(otherUserId:string,reason:string,details:string)=>Promise<void>;onBlockUser:(otherUserId:string)=>Promise<void>}){
   const [messages,setMessages]=useState<Message[]>([]);
   const [body,setBody]=useState("");
   const [busy,setBusy]=useState(false);
@@ -18,6 +18,12 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile}:{matc
   const [rescheduleMessage,setRescheduleMessage]=useState<Message|null>(null);
   const [invite,setInvite]=useState<InterviewDraft>({date:"",time:"",place:""});
   const [error,setError]=useState("");
+  const [actionsOpen,setActionsOpen]=useState(false);
+  const [reportOpen,setReportOpen]=useState(false);
+  const [reportReason,setReportReason]=useState("contenido inapropiado");
+  const [reportDetails,setReportDetails]=useState("");
+  const [moderationBusy,setModerationBusy]=useState(false);
+  const otherUserId=profile.role==="worker"?match.company_id:match.worker_id;
   const replies=profile.role==="company"?companyReplies:workerReplies;
   const grouped=useMemo(()=>messages.map((message,index)=>({message,showTime:index===0||new Date(messages[index-1].created_at).getHours()!==new Date(message.created_at).getHours()||new Date(messages[index-1].created_at).getDate()!==new Date(message.created_at).getDate()})),[messages]);
   const interviewReplies=useMemo(()=>{
@@ -35,7 +41,9 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile}:{matc
     if(!supabase)return;
     let alive=true;
     void supabase.from("jobmatch_messages").select("*").eq("match_id",match.id).order("created_at").then(({data})=>{if(alive)setMessages((data??[]) as Message[]);});
-    void supabase.rpc("jobmatch_mark_match_read",{p_match_id:match.id});
+    void supabase.rpc("jobmatch_mark_match_read",{p_match_id:match.id}).then(({error})=>{
+      if(alive&&error&&/chat unavailable|match not found/i.test(error.message)){onActivity();onClose();}
+    });
     const channel=supabase.channel(`jobmatch-chat-${match.id}`,{config:{presence:{key:profile.id}}})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"jobmatch_messages",filter:`match_id=eq.${match.id}`},(payload)=>{
         const next=payload.new as Message;setMessages((current)=>current.some((message)=>message.id===next.id)?current:[...current,next]);
@@ -54,7 +62,7 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile}:{matc
     event?.preventDefault();const content=text.trim();if(!content||busy||!supabase)return false;
     setBusy(true);setError("");
     const {data,error:sendError}=await supabase.from("jobmatch_messages").insert({match_id:match.id,sender_id:profile.id,body:content,message_type:type,metadata}).select().single();
-    if(sendError){setError(sendError.message);setBusy(false);return false;}
+    if(sendError){setError(sendError.message);setBusy(false);if(sendError.code==="42501"){onActivity();onClose();}return false;}
     if(data){setMessages((current)=>current.some((item)=>item.id===data.id)?current:[...current,data as Message]);setBody("");setInviteOpen(false);onActivity();}
     setBusy(false);return Boolean(data);
   }
@@ -75,7 +83,8 @@ export function MatchChat({match,profile,onClose,onActivity,onViewProfile}:{matc
   }
 
   return <section className="chat-panel">
-    <header className="chat-header"><button className="chat-back" onClick={onClose} aria-label="Volver a conexiones"><ArrowLeft size={18}/></button><button className="chat-profile-trigger" onClick={onViewProfile} aria-label={`Ver perfil de ${match.other_name}`}><span className="chat-avatar" style={match.other_photo?{backgroundImage:`url(${match.other_photo})`}:undefined}>{match.other_photo?null:match.other_name?.slice(0,1)}</span></button><div className="chat-contact"><button className="chat-name-trigger" onClick={onViewProfile}>{match.other_name}</button><button onClick={()=>setError(`Puesto del match: ${match.position}`)}>{match.position} <span>· vinculado</span></button></div><span className={`presence-pill ${online?"live":""}`}><i/>{online?"En línea":"Disponible"}</span></header>
+    <header className="chat-header"><button className="chat-back" onClick={onClose} aria-label="Volver a conexiones"><ArrowLeft size={18}/></button><button className="chat-profile-trigger" onClick={onViewProfile} aria-label={`Ver perfil de ${match.other_name}`}><span className="chat-avatar" style={match.other_photo?{backgroundImage:`url(${match.other_photo})`}:undefined}>{match.other_photo?null:match.other_name?.slice(0,1)}</span></button><div className="chat-contact"><button className="chat-name-trigger" onClick={onViewProfile}>{match.other_name}</button><button onClick={()=>setError(`Puesto del match: ${match.position}`)}>{match.position} <span>· vinculado</span></button></div><span className={`presence-pill ${online?"live":""}`}><i/>{online?"En línea":"Disponible"}</span><div className="chat-moderation"><button type="button" className="chat-moderation-trigger" aria-label="Opciones de conversación" aria-expanded={actionsOpen} onClick={()=>setActionsOpen((value)=>!value)}><MoreVertical size={19}/></button>{actionsOpen&&<div className="chat-moderation-menu"><button type="button" onClick={()=>{setActionsOpen(false);setReportOpen(true);}}><Flag size={15}/> Denunciar usuario</button><button type="button" onClick={()=>{setActionsOpen(false);if(window.confirm(`¿Bloquear a ${match.other_name}? Se cerrará el chat y dejarás de ver su perfil y ofertas.`)){setModerationBusy(true);void onBlockUser(otherUserId).catch((cause)=>setError(cause instanceof Error?cause.message:"No se pudo bloquear al usuario.")).finally(()=>setModerationBusy(false));}}} disabled={moderationBusy}><Ban size={15}/> Bloquear usuario</button></div>}</div></header>
+    {reportOpen&&<div className="chat-report-panel"><div><AlertTriangle size={16}/><b>Denunciar a {match.other_name}</b><button type="button" onClick={()=>setReportOpen(false)} aria-label="Cerrar denuncia"><X size={15}/></button></div><form onSubmit={async(event)=>{event.preventDefault();if(moderationBusy)return;setModerationBusy(true);setError("");try{await onReportUser(otherUserId,reportReason,reportDetails);setReportOpen(false);setError("Hemos recibido la denuncia. Gracias por ayudarnos a mantener la comunidad segura.");}catch(cause){setError(cause instanceof Error?cause.message:"No se pudo enviar la denuncia.");}finally{setModerationBusy(false);}}}><label>Motivo<select value={reportReason} onChange={(event)=>setReportReason(event.target.value)}><option value="contenido inapropiado">Contenido inapropiado</option><option value="spam/estafa">Spam o estafa</option><option value="oferta falsa">Oferta falsa</option><option value="suplantación">Suplantación</option></select></label><label>Detalles (opcional)<textarea rows={2} maxLength={1000} value={reportDetails} onChange={(event)=>setReportDetails(event.target.value)}/></label><button className="primary-button" disabled={moderationBusy}>{moderationBusy?"Enviando…":"Enviar denuncia"}</button></form></div>}
     <div className="chat-context"><span><Check size={13}/> Match profesional</span><b>{match.position}</b></div>
     <div className="chat-messages" aria-live="polite">{messages.length===0&&<div className="chat-welcome"><span className="eyebrow">CONVERSACIÓN INICIADA</span><h3>¡Ya estáis conectados!</h3><p>Saluda, comparte tu disponibilidad o proponed un momento para hablar.</p></div>}{grouped.map(({message,showTime})=><div className="message-group" key={message.id}>{showTime&&<div className="chat-time-divider">{new Date(message.created_at).toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"short"})} · {new Date(message.created_at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</div>}<article className={`chat-bubble ${message.sender_id===profile.id?"mine":"theirs"}`}>
       {message.message_type==="interview"?<InterviewCard message={message} response={interviewReplies.get(message.id)} userId={profile.id} superseded={supersededInterviews.has(message.id)} onConfirm={()=>replyToInterview(message,"confirmed")} onCancel={()=>replyToInterview(message,"cancelled")} onReschedule={()=>{const meta=message.metadata as InterviewDraft;setRescheduleMessage(message);setInvite({...meta});setInviteOpen(true);}}/>:message.message_type==="interview_reply"?<div className="interview-reply"><CalendarPlus size={15}/><span>{message.body}</span></div>:<p>{message.body}</p>}

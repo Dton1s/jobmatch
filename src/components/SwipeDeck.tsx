@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
-import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, Headset, MapPin, MessageCircle, Pause, Play, RotateCcw, Store, Truck, Utensils, X, Heart } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, Flag, Headset, MapPin, MessageCircle, Pause, Play, RotateCcw, Store, Truck, Utensils, X, Heart } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase";
@@ -17,9 +17,10 @@ type DeckProps = {
   pausedOffer: JobOffer | null; onActivateOffer: (offer: JobOffer) => void;
   onModalOpen: () => void;
   onContactDirect: (card: DeckCard) => void;
+  onReport: (card: DeckCard, reason: string, details: string) => Promise<void>;
 };
 
-export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, isPro, visible, onSwipe, onCreateOffer, onUndo, onShowFilters, pausedOffer, onActivateOffer, onModalOpen, onContactDirect }: DeckProps) {
+export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable, isPro, visible, onSwipe, onCreateOffer, onUndo, onShowFilters, pausedOffer, onActivateOffer, onModalOpen, onContactDirect, onReport }: DeckProps) {
   const [exitDirection, setExitDirection] = useState<SwipeDirection>("right");
   const currentCard = cards[0];
   const needsActiveOffer = role === "company" && !offer && !loading;
@@ -37,7 +38,7 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
       {needsActiveOffer && <div className="empty-card offer-required-state"><BriefcaseBusiness size={34}/><span className="eyebrow">PUBLICA UNA OPORTUNIDAD</span><h2>Activa o crea una oferta para empezar a deslizar candidatos</h2>{pausedOffer && <button className="primary-button" onClick={() => onActivateOffer(pausedOffer)}>Activar mi oferta</button>}<button className={pausedOffer ? "quiet-button" : "primary-button"} onClick={onCreateOffer}>Crear nueva oferta</button></div>}
       {!loading && !needsActiveOffer && !currentCard && <div className="empty-card"><div className="empty-icon"><BriefcaseBusiness size={22}/></div><span className="eyebrow">OPORTUNIDADES DE EMPLEO</span><h2>{role === "worker" ? "Ofertas de empleo al día" : "No hay más perfiles en tu radio actual"}</h2><p>{role === "worker" ? "No hay más ofertas que encajen con tus filtros por ahora. Amplía el radio o vuelve a consultar más tarde." : "Prueba a ampliar el radio o ajustar los filtros para encontrar más candidatos."}</p><button className="primary-button" onClick={onShowFilters}>Ajustar filtros</button>{undoAvailable && <button className="quiet-button" onClick={onUndo}><RotateCcw size={14}/> Deshacer última acción</button>}</div>}
       <AnimatePresence initial={false} mode="sync" custom={exitDirection}>
-        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} visible={visible} isPro={isPro} onContactDirect={onContactDirect} onSwipe={handleSwipe} onModalOpen={onModalOpen}/></motion.div>) }
+        {!loading && !needsActiveOffer && cards.slice(0, 2).map((item, index) => <motion.div key={`${item.id}-${index === 0 ? "active" : "next"}`} className={`deck-card-layer ${index === 0 ? "deck-card-layer-current" : "deck-card-layer-next"}`} custom={exitDirection} variants={{ exit: (direction: SwipeDirection) => ({ x: direction === "left" ? -900 : 900, opacity: 0, rotate: direction === "left" ? -18 : 18 }) }} exit="exit" transition={{ type: "tween", duration: .24, ease: "easeOut" }}><SwipeDeckCard role={role} card={item} active={index === 0} visible={visible} isPro={isPro} onContactDirect={onContactDirect} onSwipe={handleSwipe} onModalOpen={onModalOpen} onReport={onReport}/></motion.div>) }
       </AnimatePresence>
     </div>
     {hasActiveCard && <>
@@ -47,9 +48,14 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
   </section>;
 }
 
-function SwipeDeckCard({ role, card, active, visible, isPro, onContactDirect, onSwipe, onModalOpen }: { role: Role; card: DeckCard; active: boolean; visible: boolean; isPro: boolean; onContactDirect: (card: DeckCard) => void; onSwipe: (card: DeckCard, direction: SwipeDirection) => void; onModalOpen: () => void }) {
+function SwipeDeckCard({ role, card, active, visible, isPro, onContactDirect, onSwipe, onModalOpen, onReport }: { role: Role; card: DeckCard; active: boolean; visible: boolean; isPro: boolean; onContactDirect: (card: DeckCard) => void; onSwipe: (card: DeckCard, direction: SwipeDirection) => void; onModalOpen: () => void; onReport: (card: DeckCard, reason: string, details: string) => Promise<void> }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("contenido inapropiado");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState("");
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-220, 220], [-12, 12]);
   const noOpacity = useTransform(x, [-115, -20], [1, 0]);
@@ -121,7 +127,7 @@ function SwipeDeckCard({ role, card, active, visible, isPro, onContactDirect, on
     </motion.article>
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{visible && active && detailsOpen && <motion.div className="sheet-backdrop deck-details-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDetailsOpen(false)}><motion.section className="details-sheet deck-details-modal" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 280 }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalles completos">
       <header className="deck-details-header"><div className="deck-details-heading"><h2>{title}</h2><p>{detailPosition} · {detailLocation}</p><div><span><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span>{detailBadge&&<span>{detailBadge}</span>}</div></div><CloseButton className="sheet-close" onClick={() => setDetailsOpen(false)} label="Cerrar detalles"/></header>
-      <div className="deck-details-body">{job ? <OfferDetails offer={job}/> : worker && <CandidateDetails worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={toggleAudio}/>}</div>
+      <div className="deck-details-body">{job ? <OfferDetails offer={job}/> : worker && <CandidateDetails worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={toggleAudio}/>}<button type="button" className="report-content-trigger" onClick={()=>setReportOpen((value)=>!value)}><Flag size={14}/> Denunciar {job?"oferta":"perfil"}</button>{reportOpen&&<form className="report-content-form" onSubmit={async(event)=>{event.preventDefault();if(reportBusy)return;setReportBusy(true);setReportError("");try{await onReport(card,reportReason,reportDetails);setReportOpen(false);}catch(cause){setReportError(cause instanceof Error?cause.message:"No se pudo enviar la denuncia.");}finally{setReportBusy(false);}}}><label>Motivo<select value={reportReason} onChange={(event)=>setReportReason(event.target.value)}><option value="contenido inapropiado">Contenido inapropiado</option><option value="spam/estafa">Spam o estafa</option><option value="oferta falsa">Oferta falsa</option><option value="suplantación">Suplantación</option></select></label><label>Detalles (opcional)<textarea value={reportDetails} onChange={(event)=>setReportDetails(event.target.value)} maxLength={1000} rows={2}/></label>{reportError&&<p className="form-error" role="alert">{reportError}</p>}<button className="secondary-button" type="submit" disabled={reportBusy}>{reportBusy?"Enviando…":"Enviar denuncia"}</button></form>}</div>
       <footer className={`deck-details-actions ${role==="company"&&worker&&!worker.is_demo&&isPro?"has-pro-actions":""}`}>
         {role==="company"&&worker&&!worker.is_demo&&isPro&&<button className="secondary-button pro-contact-button" onClick={()=>{setDetailsOpen(false);onContactDirect(card);}}><MessageCircle size={16}/> Escribir con Pro</button>}
         <div className="deck-details-choice-actions">

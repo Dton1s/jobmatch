@@ -30,6 +30,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
   const isWorker = profile.role === "worker";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [communityAccepted, setCommunityAccepted] = useState(false);
   const [limitReached, setLimitReached] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
@@ -67,6 +68,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
   const isPro = Boolean(profile.is_pro && profile.pro_expires_at && new Date(profile.pro_expires_at).getTime() > Date.now());
   const atFreeOfferLimit = !isPro && activeOffersCount >= 3;
   const existingOfferCountsAsActive = Boolean(existingOffer?.is_active && !existingOffer.is_demo && new Date(existingOffer.expires_at).getTime() > Date.now());
+  const needsCommunityAcceptance = isWorker ? !existingWorker : !existingOffer;
 
   useEffect(() => () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -137,12 +139,17 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
 
   async function persistForm(form: HTMLFormElement, closeAfterSave: boolean): Promise<boolean> {
     setBusy(true); setError("");
+    if (needsCommunityAcceptance && !communityAccepted) { setBusy(false); setError("Acepta las Condiciones del Servicio y las Normas de la Comunidad para publicar."); return false; }
     if (!isWorker && !existingOfferCountsAsActive && atFreeOfferLimit) { setBusy(false); setLimitReached(true); return false; }
     const data = new FormData(form);
     try {
       if (!supabase) throw new Error("Configura las variables de Supabase primero.");
       const [lat, lng] = coordinates;
       if (!city || lat === null || lng === null) throw new Error("Detecta tu ubicación o selecciona ciudad para guardar la tarjeta.");
+      if (needsCommunityAcceptance) {
+        const { error: acceptanceError } = await supabase.from("jobmatch_community_acceptances").insert({ user_id: profile.id, document_version: "2026-11-18", content_type: isWorker ? "worker_profile" : "job_offer" });
+        if (acceptanceError) throw acceptanceError;
+      }
       const publicImage = photo ? await upload(photo, profile.id, "photo") : currentPhoto ?? null;
       if (isWorker) {
         let introAudio = oldIntro || null;
@@ -255,6 +262,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
         <label>Dirección aproximada<input name="address_approx" defaultValue={existingOffer?.address_approx ?? profile.company_address ?? ""} placeholder="Centro, zona puerto…"/></label>
       </>}
       <LocationPicker value={{ city, province, postal, lat: coordinates[0], lng: coordinates[1] }} onChange={updateLocation} onError={setError}/>
+      {needsCommunityAcceptance && <label className="community-acceptance"><input type="checkbox" checked={communityAccepted} onChange={(event)=>setCommunityAccepted(event.target.checked)} required/><span>Acepto las <a href="/terminos" target="_blank" rel="noreferrer">Condiciones del Servicio y las Normas de la Comunidad de Job Match</a>; entiendo que el contenido ofensivo o fraudulento será eliminado.</span></label>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="primary-button save-button" disabled={busy || recording} type="submit">{busy ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{busy ? "Guardando…" : isWorker ? "Guardar mi perfil" : existingOffer ? "Guardar oferta" : "Publicar oferta"}</button>
       {!isWorker && <p className="form-footnote"><Clock3 size={14}/> Las ofertas caducan automáticamente a los 14 días.</p>}

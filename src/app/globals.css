@@ -241,3 +241,21 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .deck-details-actions.has-pro-actions>.pro-contact-button{width:100%;min-height:48px;flex:none;gap:8px;padding:10px 14px;white-space:nowrap}
 .deck-details-actions.has-pro-actions>.deck-details-choice-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
 .deck-details-actions.has-pro-actions .deck-details-choice-actions>button{width:100%;min-width:0;flex:none;gap:6px;padding:9px 8px;white-space:nowrap}
+
+.report-content-trigger{display:inline-flex;align-items:center;gap:7px;margin-top:16px;padding:9px 12px;border:1px solid #e7e5e4;border-radius:999px;background:#fff;color:#57534e;font-size:12px;font-weight:650}
+.report-content-form,.chat-report-panel form{display:grid;gap:10px;margin-top:10px;padding:14px;border:1px solid #e7e5e4;border-radius:16px;background:#fafaf9}
+.report-content-form label,.chat-report-panel label{display:grid;gap:5px;color:#57534e;font-size:12px;font-weight:650}
+.report-content-form select,.report-content-form textarea,.chat-report-panel select,.chat-report-panel textarea{width:100%;border:1px solid #e7e5e4;border-radius:11px;background:#fff;padding:9px 10px;color:#292524;font:inherit;font-weight:450}
+.report-content-form textarea,.chat-report-panel textarea{resize:vertical}
+.chat-moderation{position:relative;flex:none}
+.chat-moderation-trigger{display:grid;place-items:center;width:36px;height:36px;border:1px solid #e7e5e4;border-radius:50%;background:#fff;color:#57534e}
+.chat-moderation-menu{position:absolute;z-index:30;top:calc(100% + 7px);right:0;width:190px;padding:5px;border:1px solid #e7e5e4;border-radius:14px;background:#fff;box-shadow:0 12px 30px #0f172a20}
+.chat-moderation-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:10px;border:0;border-radius:9px;background:transparent;color:#44403c;text-align:left;font-size:12px}
+.chat-moderation-menu button:hover{background:#f5f5f4}
+.chat-report-panel{position:relative;z-index:20;padding:12px 16px;border-bottom:1px solid #e7e5e4;background:#fff}
+.chat-report-panel>div{display:flex;align-items:center;gap:8px;color:#57534e;font-size:13px}
+.chat-report-panel>div b{flex:1}
+.chat-report-panel>div button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:#f5f5f4;color:#57534e}
+.community-acceptance{display:flex!important;align-items:flex-start;gap:10px;padding:13px;border:1px solid #d6e7c3;border-radius:14px;background:#f5faed;color:#475569;font-size:12px;line-height:1.55}
+.community-acceptance input{flex:none;margin:3px 0 0;accent-color:#63852a}
+.community-acceptance a{color:#516c23;text-decoration:underline;text-underline-offset:2px}

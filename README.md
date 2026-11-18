@@ -2,7 +2,7 @@
 
 Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofertas con salario visible, intereses mutuos y chat, con filtros de distancia que pueden superar los 50 km. La interfaz es mobile-first y se exporta como sitio estático de Next.js; Capacitor puede cargar esa exportación como aplicación Android.
 
-> **Estado revisado el 17 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario.
+> **Estado revisado el 18 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario. Android tiene configurado `versionName 1.0.7` y `versionCode 9`.
 
 ## Índice
 
@@ -30,12 +30,13 @@ Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofert
 - Operador: **Antonio Meroño Estañ**, persona física autónoma y titular legal del servicio, NIF indicado en la documentación legal. **Nebula Digital Studio** se usa como nombre comercial/estudio que gestiona el servicio; no es una sociedad distinta del titular.
 - Supabase conectado actualmente: instancia compartida con otros proyectos de Nébula, que mantiene la aplicación web en producción. El aislamiento de Job Match es a nivel de esquema: sus tablas, tipos, funciones, triggers, índices y políticas usan el prefijo estricto `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`. La instancia compartida no se presenta como una base exclusiva.
 - Monetización: Boost (7,99 € por 7 días) y Job Match Pro (19,99 €/mes). Según confirmación del propietario, Stripe está en modo Live y su webhook de producción está activo en `https://job-match.es/api/webhooks/stripe` con los siete eventos documentados más abajo. Vercel confirma que `STRIPE_WEBHOOK_SECRET` se actualizó el 16-11-2026 a las 16:13 UTC y que después quedó `READY` un despliegue de producción (16:14 UTC). La infraestructura de pagos se considera configurada y operativa; la clave no se copia al repositorio.
-- **Google Play Billing** ya está integrado en código para Pro (suscripción) y Boost de oferta/perfil (pagos únicos), con verificación del token en servidor y registro idempotente en Supabase. Para habilitar compras reales de prueba faltan la migración SQL `supabase/google_play_billing.sql`, crear y activar los tres productos/base plan en Play Console, dar acceso a un service account de Google Play Developer API y cargar su JSON privado en Vercel como `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
+- **Google Play Billing** está integrado en código para Pro y Boost de oferta/perfil, con verificación de compra en servidor. IDs reales: `jobmatch_pro` (plan `pro-mensual`), `jobmatch_offer_boost_7d` (opción `standar`) y `jobmatch_worker_boost_7d` (opción `standar-worker`). El estado de conexión de credenciales y publicación de cada producto debe confirmarse en Play Console/Vercel; este README no afirma que las compras reales hayan pasado una transacción de extremo a extremo.
+- **Moderación UGC:** el frontend incorpora denuncias de perfiles/ofertas/chat, bloqueo desde el chat y aceptación obligatoria de las normas al crear el primer perfil u oferta. Para que los bloqueos y reportes persistan y se apliquen por RLS, ejecuta `supabase/jobmatch_moderation.sql` en el SQL Editor antes de publicar la versión que incluye esta funcionalidad.
 - **Actualizaciones Android**: `@capawesome/capacitor-app-update` consulta disponibilidad mediante Play Core al abrir la app y al volver a primer plano. Si Google Play admite el flujo flexible, el botón inicia la descarga dentro de la app y permite reiniciar para instalar; si solo admite el flujo inmediato, lo ejecuta. Si Play no permite ninguno, abre la ficha de Job Match en Play Store como alternativa.
 - PWA instalada: manifest con nombre e iconos de JobMatch, `display: standalone` y banner de instalación para Chromium en PC/Android, con instrucciones manuales para Safari en iOS. La app no anuncia modo sin conexión ni registra un service worker.
 - Identidad visual: logo, banner, icono maestro de la app y favicons/iconos PWA están incorporados al repositorio. El logotipo gráfico conserva el wordmark compacto `jobmatch`, mientras la interfaz y la ficha de tienda utilizan **Job Match**.
 - Correo corporativo: el propietario confirma que Nominalia tiene creados y activos `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es`. Privacidad y Soporte son los contactos públicos; Administración queda para gestiones internas hasta definir flujos específicos.
-- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. La plataforma Android de Capacitor ya está creada en `android/`, sincronizada con `out/` y abierta en Android Studio; falta revisar configuración, recursos y compilación/firma del AAB.
+- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. La app Android usa Capacitor; esta revisión de código no valida una compilación AAB firmada ni la publicación del track.
 
 ## Estado de lanzamiento
 
@@ -52,7 +53,7 @@ La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado
 | Stripe | Infraestructura configurada en modo Live; webhook de producción activo según confirmación del propietario. Checkout controlado, reembolsos y facturación siguen siendo validaciones operativas recomendadas. |
 | Nombre, dominio y correo | Nombre **Job Match**, `https://job-match.es`, SSL y los tres buzones de Nominalia operativos según confirmación del propietario. |
 | SEO | `public/robots.txt` y `public/sitemap.xml` están desplegados y verificados con HTTP 200. El sitemap lista las cinco páginas públicas principales; la propiedad de Google Search Console está verificada. |
-| Android / Google Play | App v3 instalada desde Play según confirmación del propietario. Código preparado para la siguiente versión: Billing, verificación de compras y aviso de actualización. Falta aplicar SQL, configurar productos/credenciales en Play/Vercel y generar/publicar el AAB v4 para probarlo desde Google Play. |
+| Android / Google Play | Configuración fuente actual `versionName 1.0.7` / `versionCode 9`. Google Play Billing e In-App Updates están implementados en el código. La disponibilidad de productos, credenciales y compras requiere validación operativa en Play Console y en dispositivos del track de pruebas. |
 
 La producción web utiliza la instancia Supabase compartida existente. Los objetos de base de datos propios de Job Match se aíslan mediante el prefijo estricto `jobmatch_` en tablas, funciones y políticas; esta separación de esquema permite operar la aplicación actual sin presentarla como un proyecto Supabase exclusivo. Una futura migración a una instancia dedicada se planificará con backup, validación y despliegue controlado.
 
@@ -141,7 +142,7 @@ git diff --check
 
 ### Objetos de JobMatch
 
-El esquema actual contiene, entre otros, `jobmatch_profiles`, `jobmatch_worker_cards`, `jobmatch_job_offers`, `jobmatch_swipes`, `jobmatch_matches`, `jobmatch_messages`, `jobmatch_card_views` y `jobmatch_company_contacts`. El trigger de intereses mutuos crea matches y `jobmatch_messages` almacena mensajes y propuestas estructuradas.
+El esquema actual contiene, entre otros, `jobmatch_profiles`, `jobmatch_worker_cards`, `jobmatch_job_offers`, `jobmatch_swipes`, `jobmatch_matches`, `jobmatch_messages`, `jobmatch_card_views` y `jobmatch_company_contacts`. La migración de moderación añade `jobmatch_user_reports`, `jobmatch_user_blocks` y `jobmatch_community_acceptances`.
 
 Los scripts SQL pertenecen a esta app:
 
@@ -150,11 +151,14 @@ Los scripts SQL pertenecen a esta app:
 - `supabase/fix_profiles_v3.sql`, `supabase/fix_match_profile_rls.sql`: columnas y permisos de lectura del perfil ampliado.
 - `supabase/fix_storage_cv.sql`, `supabase/fix_storage_all.sql`: políticas y configuración del bucket; lee la nota de seguridad antes de aplicar o reutilizar estas políticas.
 - `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
+- La eliminación desde la app recorre de forma paginada la carpeta UUID del usuario en `jobmatch-media` y `jobmatch-cvs`, borra los archivos en bloques y después llama al RPC `jobmatch_delete_my_account`; los registros vinculados (incluidas aceptaciones, denuncias propias y bloqueos) se eliminan/anomizan mediante sus FK.
+- `supabase/jobmatch_moderation.sql`: crea las tablas de denuncias, bloqueos y aceptación de normas; configura RLS y hace cumplir bloqueos en perfiles, ofertas, swipes, matches y chat. **Pendiente ejecutar manualmente en Supabase antes de publicar esta versión.**
+- Las denuncias quedan en estado `pending` y se revisan desde el entorno administrativo de Supabase; el cliente solo puede registrar denuncias y consultar las propias, no modificar el estado interno ni las notas de moderación. Tras revisar, documenta la resolución y aplica la retirada de contenido o medida sobre la cuenta si procede.
 - `supabase/upgrade_monetization.sql`: columnas de Boost y Pro, historial idempotente de eventos Stripe, protección de campos de pago y RPC para contacto directo Pro. Aplícalo una vez en el SQL Editor del proyecto antes de habilitar cobros.
 - `supabase/free_offer_limit.sql`: aplica el máximo de tres ofertas activas en el plan gratuito y deja ilimitadas las empresas con Pro vigente. Ejecútalo en el SQL Editor de Supabase.
-- `supabase/seed_demo.sql`: carga opcional de 50 perfiles y 50 ofertas ficticios, con IDs deterministas para que se pueda volver a ejecutar. Las fichas usan nombres genéricos de muestra, avatares ilustrados y avisos visibles; no representan personas o negocios reales. Lánzalo manualmente en Supabase solo cuando se quiera probar la experiencia con contenido de muestra.
+- `supabase/seed_demo.sql`: carga opcional de perfiles y ofertas ficticios, con `is_demo=true`; no representan personas o negocios reales. Lánzalo solo para pruebas.
 - El descubrimiento consulta todas las fichas y ofertas activas sin filtrar `is_demo`; si el mazo incluye registros ficticios, muestra un aviso global. Esos registros no crean matches ni conversaciones.
-- `supabase/remove_demo_data.sql`: elimina exclusivamente filas marcadas `is_demo=true` y sus relaciones dependientes. Ejecútalo cuando ya no se necesite el contenido de muestra.
+- `supabase/cleanup_demo.sql`: elimina exclusivamente fichas/ofertas con `is_demo=true`; sus matches, mensajes y demás relaciones dependientes se eliminan por las FK. No elimina cuentas ni perfiles de autenticación. Revisa el contenido y ejecútalo cuando quieras retirar los datos ficticios.
 
 Para una base nueva, ejecuta `schema.sql` y las migraciones incrementales aplicables, incluidas `legal_and_delete_account.sql` y `free_offer_limit.sql`. El seed es opcional y no se aplica en despliegues nuevos automáticamente. Las fichas de muestra aparecen identificadas en el mazo, no registran vistas ni swipes, y no pueden crear matches ni chats. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
 
@@ -179,11 +183,12 @@ Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura
 ### Monetización de empresa
 
 - **Plan gratuito:** hasta 3 ofertas activas simultáneamente. Al llegar al límite, la interfaz explica Job Match Pro y la base de datos aplica el mismo máximo mediante el trigger de `supabase/free_offer_limit.sql`.
-- **Boost:** pago único de 7,99 €; Stripe activa el destaque durante 7 días. Las ofertas Boost vigentes aparecen primero a trabajadores que buscan ofertas.
-- **Job Match Pro:** 19,99 €/mes; Stripe mantiene `is_pro` y `pro_expires_at` según el estado y periodo real de la suscripción. Las empresas Pro pueden iniciar conversaciones directas con candidatos reales desde el detalle de la ficha.
+- **Web:** Stripe procesa Boost de oferta (7,99 €), Boost de trabajador (1,99 €) y Job Match Pro (19,99 €/mes).
+- **Android:** Google Play Billing procesa estos mismos productos dentro de la app; Android no abre Stripe. La suscripción usa `jobmatch_pro` / `pro-mensual`; los pagos únicos usan `jobmatch_offer_boost_7d` / `standar` y `jobmatch_worker_boost_7d` / `standar-worker`.
+- La activación de beneficios depende de la validación del pago en backend. Las empresas Pro pueden iniciar conversaciones directas con candidatos disponibles desde el detalle de la ficha.
 - Las funciones Vercel están en `api/checkout/boost.ts`, `api/checkout/subscription.ts` y `api/webhooks/stripe.ts`. El webhook valida la firma Stripe, y la clave `service_role` solo se usa en backend.
 - En Vercel están creadas las variables de producción enumeradas en [Variables de entorno en Vercel](#variables-de-entorno-en-vercel). No copies sus valores al README. `STRIPE_PRO_PRICE_ID` debe identificar un precio Stripe activo de 19,99 EUR recurrente cada mes; el endpoint lo valida antes de crear Checkout. El Boost actual crea un precio único de 7,99 EUR directamente en el endpoint y dura 7 días; `STRIPE_BOOST_PRICE_ID` también está configurada en Vercel, pero el código actual no la consume. El propietario confirma que el endpoint de producción está configurado y activo en Stripe: `https://job-match.es/api/webhooks/stripe`, con los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` e `invoice.payment_failed`.
-- Las variables de Production necesarias están presentes en Vercel. El propietario confirma configuración Live y webhook activo; la actualización de `STRIPE_WEBHOOK_SECRET` fue seguida por un despliegue Production `READY`. Pendiente registrar un checkout de verificación con una transacción controlada y revisar el ciclo de reembolso/facturación. Los botones Stripe se ocultan en Android mientras no se integre Google Play Billing.
+- El propietario confirma Stripe Live y webhook activo; la actualización de `STRIPE_WEBHOOK_SECRET` fue seguida por un despliegue Production `READY`. Sigue pendiente comprobar el ciclo de compra, cancelación y reembolso con transacciones controladas. Los botones Stripe se ocultan en Android; el código nativo utiliza Google Play Billing.
 
 ### Impulso de perfil de trabajador
 
@@ -194,8 +199,8 @@ Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura
 
 ### Google Play Billing para Android
 
-- El proyecto usa `@capgo/native-purchases` para Google Play Billing 8.3 y `@capawesome/capacitor-app-update` para las actualizaciones de Play Core. La web conserva Stripe; Android no abre Stripe.
-- Product IDs requeridos (crear con estos identificadores exactos en Play Console): `jobmatch_pro` con base plan `monthly` y renovación mensual a 19,99 €; `jobmatch_offer_boost_7d` como producto de un solo uso a 7,99 €; `jobmatch_worker_boost_7d` como producto de un solo uso a 1,99 €. La interfaz toma el precio localizado que devuelve Google Play.
+- El proyecto usa `@capgo/native-purchases` para Google Play Billing y `@capawesome/capacitor-app-update` para In-App Updates de Play Core. La web conserva Stripe; Android no abre Stripe.
+- IDs configurados: suscripción `jobmatch_pro` con base plan `pro-mensual`; Boost de oferta `jobmatch_offer_boost_7d` con opción `standar`; Boost de trabajador `jobmatch_worker_boost_7d` con opción `standar-worker`. La interfaz toma los precios localizados de Play.
 - Antes de probar: aplicar `supabase/google_play_billing.sql`; habilitar Google Play Android Developer API y vincular el service account con permisos de gestión de pedidos/suscripciones en Play Console; añadir su JSON completo en Vercel Production como `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`; redesplegar las funciones. No subir el JSON al repositorio.
 - Las compras se validan en el servidor con la API Android Publisher, se vinculan a un hash de la cuenta Job Match y se registran por hash del purchase token para impedir duplicados y reutilización entre cuentas. El servidor activa los beneficios y consume Boosts o confirma Pro únicamente tras validar el pago.
 - Añadir los testers a la lista de License Testing y al track de testing. Deben instalar la versión desde Google Play, no mediante APK sideload. Los productos deben estar activos y disponibles para el track.
@@ -256,7 +261,7 @@ npm run build
 npx cap add android
 ```
 
-El manifiesto `android/app/src/main/AndroidManifest.xml` ya declara el intent filter OAuth para `es.nebuladigitalstudio.jobmatch://auth/callback`, con las categorías `DEFAULT` y `BROWSABLE`. Revisa también los permisos de micrófono y ubicación. La versión preparada para el siguiente AAB es `versionCode 4` / `versionName 1.0.2`. El plugin de compras incorpora Google Play Billing 8.3.0; el plugin de actualizaciones usa la API de In-App Updates de Google Play.
+El manifiesto `android/app/src/main/AndroidManifest.xml` declara el intent filter OAuth `es.nebuladigitalstudio.jobmatch://auth/callback`. La versión configurada actualmente es `versionCode 9` / `versionName 1.0.7`. El plugin de compras integra Google Play Billing; el plugin de actualizaciones usa In-App Updates de Google Play. Antes de compilar el siguiente AAB, ejecuta las migraciones SQL pendientes y valida productos/credenciales en el track correspondiente.
 
 Sincronización y apertura posteriores:
 
