@@ -1,3 +1,4 @@
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { NativePurchases, PURCHASE_TYPE, type Product } from "@capgo/native-purchases";
 import { supabase } from "@/lib/supabase";
 import { GOOGLE_PLAY_PRODUCTS } from "@/lib/google-play-products";
@@ -91,13 +92,8 @@ export async function purchaseWithGooglePlay(kind: GooglePlayPurchaseKind, userI
     throw new Error("Google Play aún no ha confirmado el pago. Si está pendiente, el beneficio se activará cuando se complete.");
   }
 
-  const response = await fetch("/api/google-play/verify-purchase", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, purchase_token: transaction.purchaseToken, offer_id: offerId }),
-  });
-  const result = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(result.error || "No se pudo validar la compra con Google Play.");
+  const result = await verifyPurchaseWithBackend(accessToken, { kind, purchase_token: transaction.purchaseToken, offer_id: offerId });
+  if (!result.ok) throw new Error(result.error || "No se pudo validar la compra con Google Play.");
   if (typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
 }
 
@@ -111,12 +107,8 @@ export async function syncGooglePlaySubscription(userId: string): Promise<void> 
   let verifiedPro = false;
   for (const purchase of purchases) {
     if (purchase.productIdentifier !== GOOGLE_PLAY_PRODUCTS.pro.productId || !purchase.purchaseToken || purchase.purchaseState !== "1") continue;
-    const response = await fetch("/api/google-play/verify-purchase", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "pro", purchase_token: purchase.purchaseToken }),
-    });
-    verifiedPro ||= response.ok;
+    const result = await verifyPurchaseWithBackend(accessToken, { kind: "pro", purchase_token: purchase.purchaseToken });
+    verifiedPro ||= result.ok;
   }
 
   const pending = readPendingPurchaseContext();
@@ -126,12 +118,22 @@ export async function syncGooglePlaySubscription(userId: string): Promise<void> 
   const expectedProductId = pending.kind === "offer_boost" ? GOOGLE_PLAY_PRODUCTS.offerBoost.productId : GOOGLE_PLAY_PRODUCTS.workerBoost.productId;
   const transaction = oneTimePurchases.find((purchase) => purchase.productIdentifier === expectedProductId && purchase.purchaseState === "1" && purchase.purchaseToken);
   if (!transaction?.purchaseToken || (pending.kind === "offer_boost" && !pending.offerId)) return;
-  const response = await fetch("/api/google-play/verify-purchase", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: pending.kind, purchase_token: transaction.purchaseToken, offer_id: pending.offerId }),
-  });
-  if (response.ok && typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
+  const result = await verifyPurchaseWithBackend(accessToken, { kind: pending.kind, purchase_token: transaction.purchaseToken, offer_id: pending.offerId });
+  if (result.ok && typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
+}
+
+async function verifyPurchaseWithBackend(accessToken: string, data: Record<string, string | undefined>): Promise<{ ok: boolean; error?: string }> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://job-match.es";
+  const url = new URL("/api/google-play/verify-purchase", baseUrl).toString();
+  const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+  if (Capacitor.isNativePlatform()) {
+    const response = await CapacitorHttp.post({ url, headers, data });
+    return { ok: response.status >= 200 && response.status < 300, error: (response.data as { error?: string } | null)?.error };
+  }
+
+  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(data) });
+  const result = await response.json().catch(() => ({})) as { error?: string };
+  return { ok: response.ok, error: result.error };
 }
 
 function readPendingPurchaseContext(): { kind: GooglePlayPurchaseKind; offerId?: string } | null {
