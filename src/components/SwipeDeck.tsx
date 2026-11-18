@@ -1,11 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
-import { BadgeCheck, BriefcaseBusiness, Building2, Check, ChevronRight, Clock3, GraduationCap, Headset, Languages, MapPin, MessageCircle, Pause, Play, RotateCcw, Store, Truck, Utensils, X, Heart, CarFront, Phone, UserRound } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Check, ChevronRight, Clock3, Headset, MapPin, MessageCircle, Pause, Play, RotateCcw, Store, Truck, Utensils, X, Heart } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { JobOffer, Role, SwipeDirection, WorkerCard } from "@/lib/supabase";
 import { CloseButton } from "@/components/CloseButton";
+import { OfferDetailsContent, WorkerDetailsContent } from "@/components/UnifiedProfileDetails";
 
 export type DeckCard = (WorkerCard & { distanceKm?: number; interested?: boolean }) | (JobOffer & { distanceKm?: number });
 
@@ -141,30 +142,12 @@ function WorkerSummary({ worker, audioRef, audioPlaying, onToggleAudio }: { work
 }
 
 function CandidateDetails({ worker, audioRef, audioPlaying, onToggleAudio }: { worker: WorkerCard; audioRef: React.RefObject<HTMLAudioElement | null>; audioPlaying: boolean; onToggleAudio: () => void }) {
-  const mobility = worker.skills.filter((skill) => /carnet|veh[ií]culo|conducir/i.test(skill));
-  const skills = worker.skills.filter((skill) => !mobility.includes(skill));
-  return <div className="sheet-content details-card-stack">
-    {worker.bio && <DetailCard title="Presentación"><DetailRow icon={<UserRound/>}>{worker.bio}</DetailRow></DetailCard>}
-    <DetailCard title="Experiencia y disponibilidad"><DetailRow icon={<BriefcaseBusiness/>}><b>{worker.desired_position}</b><span>{worker.experience_years} años de experiencia</span></DetailRow><DetailRow icon={<Clock3/>}>{worker.availability_note || availabilityLabel(worker.availability)}</DetailRow></DetailCard>
-    <DetailCard title="Formación e idiomas">{worker.education_level && <DetailRow icon={<GraduationCap/>}>{worker.education_level}</DetailRow>}{(worker.languages ?? []).length > 0 ? <DetailRow icon={<Languages/>}><div className="detail-chips">{worker.languages!.map((language) => <span key={language}>{language}</span>)}</div></DetailRow> : <DetailRow icon={<Languages/>}>Idiomas no indicados</DetailRow>}</DetailCard>
-    {skills.length > 0 && <DetailCard title="Habilidades"><div className="detail-chips">{skills.map((skill) => <span key={skill}>{skill}</span>)}</div></DetailCard>}
-    {mobility.length > 0 && <DetailCard title="Carnet de conducir y movilidad"><DetailRow icon={<CarFront/>}><div className="detail-chips">{mobility.map((skill) => <span key={skill}>{skill}</span>)}</div></DetailRow></DetailCard>}
-    {worker.intro_audio_path && <DetailCard title="Presentación de voz"><AudioPitch source={worker.intro_audio_path} audioRef={audioRef} playing={audioPlaying} onToggle={onToggleAudio}/></DetailCard>}
-  </div>;
+  return <WorkerDetailsContent worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={onToggleAudio}/>;
 }
 
 function OfferDetails({ offer }: { offer: JobOffer }) {
-  const mapUrl = `https://www.google.com/maps?q=${offer.lat},${offer.lng}`;
-  const phone = (offer as JobOffer & { business_phone?: string }).business_phone;
-  return <div className="sheet-content details-card-stack">
-    <DetailCard title="Sobre el negocio"><DetailRow icon={<Building2/>}><b>{offer.business_name}</b><span>{offer.sector}</span></DetailRow><DetailRow icon={<BriefcaseBusiness/>}>{offer.description}</DetailRow></DetailCard>
-    <DetailCard title="Condiciones del puesto"><DetailRow icon={<BriefcaseBusiness/>}><b>Puesto vinculado</b><span>{offer.position}</span></DetailRow><DetailRow icon={<span className="detail-euro">€</span>}><b>Salario</b><span>{offer.salary_text}</span></DetailRow><DetailRow icon={<Clock3/>}><b>Jornada / turno</b><span>{offer.shift_type}{offer.schedule ? ` · ${offer.schedule}` : ""}</span></DetailRow>{offer.benefits?.length > 0 && <div className="detail-chips">{offer.benefits.map((benefit) => <span key={benefit}><Check size={12}/>{benefit}</span>)}</div>}</DetailCard>
-    <DetailCard title="Ubicación y contacto"><DetailRow icon={<MapPin/>}><span>{offer.address_approx ? `${offer.address_approx}, ` : ""}{offer.city}</span></DetailRow><a className="detail-map-link" href={mapUrl} target="_blank" rel="noreferrer"><MapPin size={15}/> Ver zona en el mapa</a>{phone && <a className="detail-map-link" href={`tel:${phone.replace(/[^+\d]/g, "")}`}><Phone size={15}/> Llamar al negocio · {phone}</a>}</DetailCard>
-  </div>;
+  return <OfferDetailsContent offer={offer}/>;
 }
-
-function DetailCard({ title, children }: { title: string; children: React.ReactNode }) { return <section className="detail-card"><h3>{title}</h3><div className="detail-card-content">{children}</div></section>; }
-function DetailRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) { return <div className="detail-row"><span className="detail-row-icon">{icon}</span><div className="detail-row-copy">{children}</div></div>; }
 
 function AudioPitch({ source, audioRef, playing, onToggle }: { source: string; audioRef: React.RefObject<HTMLAudioElement | null>; playing: boolean; onToggle: () => void }) {
   return <div className={`pitch-player ${playing ? "playing" : ""}`}><audio ref={audioRef} src={source} preload="none" onEnded={onToggle} className="hidden-audio"/><button type="button" className="pitch-play" aria-label={playing ? "Pausar presentación" : "Escuchar presentación"} onClick={onToggle}>{playing ? <Pause size={15}/> : <Play size={15} fill="currentColor"/>}</button><div className="pitch-wave" aria-label="Audio de presentación de hasta 15 segundos">{Array.from({ length: 27 }, (_, index) => <i key={index} style={{ "--bar": `${7 + (index * 13) % 19}px` } as React.CSSProperties}/>)}</div><span>Presentación · 0:15</span></div>;
