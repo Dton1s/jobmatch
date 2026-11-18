@@ -1,9 +1,9 @@
 apply plugin: 'com.android.application'
 
-def uploadStoreFile = System.getenv('JOBMATCH_UPLOAD_STORE_FILE')
-def uploadStorePassword = System.getenv('JOBMATCH_UPLOAD_STORE_PASSWORD')
-def uploadKeyAlias = System.getenv('JOBMATCH_UPLOAD_KEY_ALIAS')
-def uploadKeyPassword = System.getenv('JOBMATCH_UPLOAD_KEY_PASSWORD')
+def uploadStoreFile = System.getenv('KEYSTORE_FILE') ?: System.getenv('JOBMATCH_UPLOAD_STORE_FILE')
+def uploadStorePassword = System.getenv('KEYSTORE_PASSWORD') ?: System.getenv('JOBMATCH_UPLOAD_STORE_PASSWORD')
+def uploadKeyAlias = System.getenv('KEY_ALIAS') ?: System.getenv('JOBMATCH_UPLOAD_KEY_ALIAS')
+def uploadKeyPassword = System.getenv('KEY_PASSWORD') ?: System.getenv('JOBMATCH_UPLOAD_KEY_PASSWORD')
 def uploadSigningConfigured = [uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword].every { it }
 
 android {
@@ -13,8 +13,8 @@ android {
         applicationId "es.nebuladigitalstudio.jobmatch"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.0.3"
+        versionCode 6
+        versionName "1.0.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
