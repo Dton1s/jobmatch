@@ -2,7 +2,7 @@
 
 Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofertas con salario visible, intereses mutuos y chat, con filtros de distancia que pueden superar los 50 km. La interfaz es mobile-first y se exporta como sitio estático de Next.js; Capacitor puede cargar esa exportación como aplicación Android.
 
-> **Estado revisado el 18 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario. Android tiene configurado `versionName 1.0.8` y `versionCode 10`.
+> **Estado revisado el 18 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario. Android tiene configurado `versionName 1.0.9` y `versionCode 11`.
 
 ## Índice
 
@@ -31,20 +31,20 @@ Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofert
 - Supabase conectado actualmente: instancia compartida con otros proyectos de Nébula, que mantiene la aplicación web en producción. El aislamiento de Job Match es a nivel de esquema: sus tablas, tipos, funciones, triggers, índices y políticas usan el prefijo estricto `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`. La instancia compartida no se presenta como una base exclusiva.
 - Monetización: Boost (7,99 € por 7 días) y Job Match Pro (19,99 €/mes). Según confirmación del propietario, Stripe está en modo Live y su webhook de producción está activo en `https://job-match.es/api/webhooks/stripe` con los siete eventos documentados más abajo. Vercel confirma que `STRIPE_WEBHOOK_SECRET` se actualizó el 16-11-2026 a las 16:13 UTC y que después quedó `READY` un despliegue de producción (16:14 UTC). La infraestructura de pagos se considera configurada y operativa; la clave no se copia al repositorio.
 - **Google Play Billing** está integrado en código para Pro y Boost de oferta/perfil, con verificación de compra en servidor. IDs reales: `jobmatch_pro` (plan `pro-mensual`), `jobmatch_offer_boost_7d` (opción `standar`) y `jobmatch_worker_boost_7d` (opción `standar-worker`). El estado de conexión de credenciales y publicación de cada producto debe confirmarse en Play Console/Vercel; este README no afirma que las compras reales hayan pasado una transacción de extremo a extremo.
-- **Moderación UGC:** el frontend incorpora denuncias de perfiles/ofertas/chat, bloqueo desde el chat y aceptación obligatoria de las normas al crear el primer perfil u oferta. Para una base nueva, ejecuta `supabase/jobmatch_moderation.sql`; si la tabla ya existe, ejecuta también `supabase/upgrade_message_reports.sql` para habilitar los motivos nuevos de denuncia de mensajes. Confirma que la migración se haya aplicado en producción antes de activar estas denuncias.
+- **Moderación UGC:** el frontend incorpora denuncias de perfiles, ofertas y mensajes, bloqueo desde el chat y aceptación obligatoria de las normas al crear el primer perfil u oferta. El propietario confirma que `supabase/upgrade_message_reports.sql` ya se ejecutó en producción y habilita los cuatro motivos de denuncia de mensajes; la definición para instalaciones nuevas está actualizada en `supabase/jobmatch_moderation.sql`.
 - **Actualizaciones Android**: `@capawesome/capacitor-app-update` consulta disponibilidad mediante Play Core al abrir la app y al volver a primer plano. Si Google Play admite el flujo flexible, el botón inicia la descarga dentro de la app y permite reiniciar para instalar; si solo admite el flujo inmediato, lo ejecuta. Si Play no permite ninguno, abre la ficha de Job Match en Play Store como alternativa.
 - PWA instalada: manifest con nombre e iconos de JobMatch, `display: standalone` y banner de instalación para Chromium en PC/Android, con instrucciones manuales para Safari en iOS. La app no anuncia modo sin conexión ni registra un service worker.
 - Identidad visual: logo, banner, icono maestro de la app y favicons/iconos PWA están incorporados al repositorio. El logotipo gráfico conserva el wordmark compacto `jobmatch`, mientras la interfaz y la ficha de tienda utilizan **Job Match**.
 - Correo corporativo: el propietario confirma que Nominalia tiene creados y activos `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es`. Privacidad y Soporte son los contactos públicos; Administración queda para gestiones internas hasta definir flujos específicos.
-- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. La app Android usa Capacitor; esta revisión de código no valida una compilación AAB firmada ni la publicación del track.
+- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. Para Android, el AAB 1.0.9 firmado se generó y verificó localmente; la subida al track y las pruebas en Play quedan pendientes.
 
 ## Estado de lanzamiento
 
 La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado en el proyecto y sirve la producción. El último despliegue de producción observado está `READY`; el subdominio `jobmatch.nebuladigitalstudio.es` permanece conectado como origen anterior.
 
-> **Infraestructura web completada al 100% según confirmación operativa del propietario:** Vercel, dominio canónico con SSL, buzones de Nominalia, Stripe Live con webhook activo y SEO (rastreo y Search Console). La plataforma Android ya está inicializada; el siguiente hito es validar OAuth, recursos y compilación firmada.
+> **Infraestructura web completada al 100% según confirmación operativa del propietario:** Vercel, dominio canónico con SSL, buzones de Nominalia, Stripe Live con webhook activo y SEO (rastreo y Search Console). Android tiene un AAB firmado listo para subir; el siguiente hito es probar OAuth, Billing y actualizaciones desde el track de Google Play.
 
-| Área | Estado a 16-11-2026 |
+| Área | Estado a 18-11-2026 |
 | --- | --- |
 | Aplicación web y flujos principales | Desplegados en Vercel; los flujos autenticados principales se revisaron en sesión. Mantener pruebas de aceptación de extremo a extremo antes de escalar el registro público. |
 | PWA e identidad visual | Manifest, instalación guiada, logotipo, banner «Haz match con el empleo», icono y favicon incorporados. |
@@ -53,11 +53,11 @@ La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado
 | Stripe | Infraestructura configurada en modo Live; webhook de producción activo según confirmación del propietario. Checkout controlado, reembolsos y facturación siguen siendo validaciones operativas recomendadas. |
 | Nombre, dominio y correo | Nombre **Job Match**, `https://job-match.es`, SSL y los tres buzones de Nominalia operativos según confirmación del propietario. |
 | SEO | `public/robots.txt` y `public/sitemap.xml` están desplegados y verificados con HTTP 200. El sitemap lista las cinco páginas públicas principales; la propiedad de Google Search Console está verificada. |
-| Android / Google Play | Configuración fuente actual `versionName 1.0.8` / `versionCode 10`. Google Play Billing e In-App Updates están implementados en el código. La disponibilidad de productos, credenciales y compras requiere validación operativa en Play Console y en dispositivos del track de pruebas. |
+| Android / Google Play | Configuración fuente `versionName 1.0.9` / `versionCode 11`. AAB release firmado generado localmente y verificado; queda pendiente subirlo al track de prueba. Google Play Billing e In-App Updates están implementados; las compras reales aún requieren validación dentro del track. |
 
 La producción web utiliza la instancia Supabase compartida existente. Los objetos de base de datos propios de Job Match se aíslan mediante el prefijo estricto `jobmatch_` en tablas, funciones y políticas; esta separación de esquema permite operar la aplicación actual sin presentarla como un proyecto Supabase exclusivo. Una futura migración a una instancia dedicada se planificará con backup, validación y despliegue controlado.
 
-### Verificación técnica de producción — 16 de noviembre de 2026
+### Verificación técnica de producción — 18 de noviembre de 2026
 
 - **Dominio y SSL:** el propietario confirma que `https://job-match.es` está operativo en Vercel y con SSL activo; el último despliegue Production consultado está en estado `READY`.
 - **Correo:** el propietario confirma que `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es` están activos y listos para uso operativo.
@@ -96,8 +96,8 @@ El código de Checkout y el webhook de Stripe están en el repositorio. La cuent
 ### Perfil, chat y eliminación
 
 - El selector superior permite cambiar de identidad sin perder la pestaña abierta. **Perfil y ajustes** contiene estadísticas, ofertas, edición y cierre de sesión.
-- Los mensajes y matches se actualizan con Supabase Realtime.
-- La eliminación dentro de la app borra los archivos de la carpeta del usuario en `jobmatch-media` y `jobmatch-cvs`, y llama a `jobmatch_delete_my_account()` para eliminar filas relacionadas y el usuario de Auth.
+- Los mensajes y matches se actualizan con Supabase Realtime. La cabecera del chat se adapta a móviles; el menú de cada mensaje permite ocultarlo solo en la vista local (persistido por usuario y conversación) y denunciar mensajes recibidos con motivo y contexto opcional.
+- La eliminación dentro de la app borra de forma paginada los archivos de la carpeta del usuario en `jobmatch-media` y `jobmatch-cvs`, además de la ruta histórica `cv/<user-id>/` en `jobmatch-cvs`, y llama a `jobmatch_delete_my_account()` para eliminar filas relacionadas y el usuario de Auth.
 - `/eliminar-cuenta` ofrece además instrucciones externas para solicitar el borrado sin tener instalada la app.
 
 ## Arquitectura
@@ -152,7 +152,7 @@ Los scripts SQL pertenecen a esta app:
 - `supabase/fix_storage_cv.sql`, `supabase/fix_storage_all.sql`: políticas y configuración del bucket; lee la nota de seguridad antes de aplicar o reutilizar estas políticas.
 - `supabase/legal_and_delete_account.sql`: RPC de eliminación de cuenta.
 - La eliminación desde la app recorre de forma paginada la carpeta UUID del usuario en `jobmatch-media` y `jobmatch-cvs`, y también el prefijo histórico `cv/<user-id>/` en `jobmatch-cvs`; borra los archivos en bloques y después llama al RPC `jobmatch_delete_my_account`; los registros vinculados (incluidas aceptaciones, denuncias propias y bloqueos) se eliminan/anomizan mediante sus FK.
-- `supabase/jobmatch_moderation.sql`: crea las tablas de denuncias, bloqueos y aceptación de normas; configura RLS y hace cumplir bloqueos en perfiles, ofertas, swipes, matches y chat. Para una base existente, aplica `supabase/upgrade_message_reports.sql` para ampliar los motivos admitidos al denunciar mensajes.
+- `supabase/jobmatch_moderation.sql`: crea las tablas de denuncias, bloqueos y aceptación de normas; configura RLS y hace cumplir bloqueos en perfiles, ofertas, swipes, matches y chat. `supabase/upgrade_message_reports.sql` amplía los motivos de denuncia para mensajes; el propietario confirma que la migración ya se ejecutó en producción.
 - Las denuncias quedan en estado `pending` y se revisan desde el entorno administrativo de Supabase; el cliente solo puede registrar denuncias y consultar las propias, no modificar el estado interno ni las notas de moderación. Tras revisar, documenta la resolución y aplica la retirada de contenido o medida sobre la cuenta si procede.
 - `supabase/upgrade_monetization.sql`: columnas de Boost y Pro, historial idempotente de eventos Stripe, protección de campos de pago y RPC para contacto directo Pro. Aplícalo una vez en el SQL Editor del proyecto antes de habilitar cobros.
 - `supabase/free_offer_limit.sql`: aplica el máximo de tres ofertas activas en el plan gratuito y deja ilimitadas las empresas con Pro vigente. Ejecútalo en el SQL Editor de Supabase.
@@ -162,7 +162,7 @@ Los scripts SQL pertenecen a esta app:
 
 Para una base nueva, ejecuta `schema.sql` y las migraciones incrementales aplicables, incluidas `legal_and_delete_account.sql` y `free_offer_limit.sql`. El seed es opcional y no se aplica en despliegues nuevos automáticamente. Las fichas de muestra aparecen identificadas en el mazo, no registran vistas ni swipes, y no pueden crear matches ni chats. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
 
-Antes de desplegar el modo de rol único/dual en una base existente, ejecuta `supabase/upgrade_role_modes.sql` al final de las migraciones anteriores. Añade `enabled_roles`, conserva el rol principal existente y aplica RLS para que las fichas y ofertas solo sean visibles en descubrimiento mientras su modo está habilitado.
+Antes de desplegar el modo de rol único/dual en una base existente, ejecuta `supabase/upgrade_role_modes.sql` al final de las migraciones anteriores. La migración de motivos de denuncia `upgrade_message_reports.sql` ya está aplicada en producción, según confirma el propietario. Añade `enabled_roles`, conserva el rol principal existente y aplica RLS para que las fichas y ofertas solo sean visibles en descubrimiento mientras su modo está habilitado.
 
 ### Auth y Google OAuth
 
@@ -176,7 +176,7 @@ Las listas de redirección de Supabase y Google son configuración externa: el b
 
 ### Storage
 
-Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura pública y restringe las escrituras a la carpeta del usuario autenticado. Los currículums se guardan en el bucket privado `jobmatch-cvs`, con límite de 5 MB y solo PDF. `supabase/private_cvs_storage.sql` crea el bucket y aplica políticas estrictas: el titular puede leer su CV y otros usuarios solo pueden leerlo si existe un match confirmado. La app genera una URL firmada con vigencia de 5 minutos al abrir el documento. No se guardan nuevas URLs públicas.
+Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura pública por URL y restringe las escrituras a la carpeta del usuario autenticado; se muestran a usuarios con acceso a la ficha/oferta y cualquier persona que obtenga la URL puede abrir el archivo mientras exista. Los currículums se guardan en el bucket privado `jobmatch-cvs`, con límite de 5 MB y solo PDF. `supabase/private_cvs_storage.sql` crea el bucket y aplica políticas estrictas: el titular puede leer su CV y otros usuarios solo pueden leerlo si existe un match confirmado. La app genera una URL firmada con vigencia de 5 minutos al abrir el documento. No se guardan nuevas URLs públicas.
 
 **Estado de seguridad:** el repositorio contiene `supabase/private_cvs_storage.sql` para el bucket privado y las políticas estrictas. El propietario informó que ejecutó en el SQL Editor el SQL corregido de `INSERT`/`UPDATE` sin depender de `metadata`; antes del lanzamiento al público hay que comprobar en el proyecto Supabase conectado que `jobmatch-cvs` sea privado, admita solo PDF hasta 5 MB y tenga las políticas esperadas. Los archivos PDF históricos que aún estén en el bucket público `jobmatch-media` siguen siendo accesibles públicamente hasta migrarlos a `jobmatch-cvs` y borrar los originales. La app conserva compatibilidad temporal al firmar las referencias antiguas, pero esa compatibilidad no vuelve privados los objetos antiguos.
 
@@ -261,7 +261,7 @@ npm run build
 npx cap add android
 ```
 
-El manifiesto `android/app/src/main/AndroidManifest.xml` declara el intent filter OAuth `es.nebuladigitalstudio.jobmatch://auth/callback`. La versión configurada actualmente es `versionCode 10` / `versionName 1.0.8`. El plugin de compras integra Google Play Billing; el plugin de actualizaciones usa In-App Updates de Google Play. Antes de compilar el siguiente AAB, ejecuta las migraciones SQL pendientes y valida productos/credenciales en el track correspondiente.
+El manifiesto `android/app/src/main/AndroidManifest.xml` declara el intent filter OAuth `es.nebuladigitalstudio.jobmatch://auth/callback`. La versión configurada es `versionCode 11` / `versionName 1.0.9`. El AAB release firmado se generó y verificó localmente el 18 de noviembre de 2026; falta subirlo al track de prueba. El plugin de compras integra Google Play Billing y el de actualizaciones usa In-App Updates. La migración `upgrade_message_reports.sql` está aplicada según el propietario; antes de publicar, valida productos, compras y actualización dentro del track.
 
 Sincronización y apertura posteriores:
 
@@ -339,7 +339,7 @@ La app desplegada utiliza Supabase compartido con otros productos y mantiene su 
 - La base compartida exige mantener el prefijo `jobmatch_` en tablas, funciones, triggers, índices y políticas. No renombres ni modifiques objetos de otros proyectos.
 - Google OAuth usa el correo como identidad; no se debe mostrar a otros usuarios como contacto.
 - Los perfiles ampliados y el teléfono comercial están condicionados por matches y preferencias, mediante RLS y la interfaz.
-- La solicitud de borrado in-app borra de forma paginada los objetos bajo el UUID del usuario en ambos buckets y el prefijo histórico `cv/<user-id>/` de `jobmatch-cvs` antes de llamar al RPC.
+- La solicitud de borrado in-app borra de forma paginada los objetos bajo el UUID del usuario en ambos buckets y el prefijo histórico `cv/<user-id>/` de `jobmatch-cvs` antes de llamar al RPC. La Política de Privacidad pública describe las URL accesibles de fotos/audios, el contenedor privado de CV y la eliminación de archivos asociados al borrar la cuenta.
 - El aviso legal, privacidad y términos identifican a Antonio Meroño Estañ como titular persona física autónoma, y a Nebula Digital Studio como nombre comercial/estudio que gestiona Job Match. El propietario confirma que los tres buzones Nominalia están activos. Administración queda disponible para uso interno; no se expone como contacto público.
 - La auditoría de código no verifica el estado real de las políticas, OAuth, Realtime, bucket o funciones en el proyecto Supabase. Contrasta esos ajustes con los scripts y realiza un inicio, match, chat, subida y borrado controlados en un entorno de prueba.
 
