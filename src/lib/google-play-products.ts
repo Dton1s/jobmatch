@@ -1,5 +1,5 @@
 export const GOOGLE_PLAY_PRODUCTS = {
-  pro: { productId: "jobmatch_pro", basePlanId: "monthly", type: "subscription" },
+  pro: { productId: "jobmatch_pro", basePlanId: "pro-mensual", type: "subscription" },
   offerBoost: { productId: "jobmatch_offer_boost_7d", type: "inapp" },
   workerBoost: { productId: "jobmatch_worker_boost_7d", type: "inapp" },
 } as const;

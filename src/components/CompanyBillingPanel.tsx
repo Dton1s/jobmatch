@@ -5,12 +5,12 @@ import { App } from "@capacitor/app";
 import { BadgeCheck, BriefcaseBusiness, Crown } from "lucide-react";
 import { supabase, type JobOffer, type Profile } from "@/lib/supabase";
 import { getPaymentChannel } from "@/lib/platform";
-import { getGooglePlayProduct, purchaseWithGooglePlay } from "@/lib/native-billing";
+import { getCachedGooglePlayProduct, getGooglePlayProduct, purchaseWithGooglePlay } from "@/lib/native-billing";
 import type { Product } from "@capgo/native-purchases";
 
 export function CompanyBillingPanel({ profile, onError, onPurchased }: { profile: Profile; onError: (message: string) => void; onPurchased: () => void }) {
   const [busy, setBusy] = useState("");
-  const [playProduct, setPlayProduct] = useState<Product | null>(null);
+  const [playProduct, setPlayProduct] = useState<Product | null>(() => getCachedGooglePlayProduct("pro"));
   const [playProductMissing, setPlayProductMissing] = useState(false);
   const activePro = Boolean(profile.is_pro && profile.pro_expires_at && new Date(profile.pro_expires_at).getTime() > Date.now());
   const native = getPaymentChannel() === "google_play";
@@ -18,12 +18,12 @@ export function CompanyBillingPanel({ profile, onError, onPurchased }: { profile
   useEffect(() => {
     if (!native) return;
     let active = true;
-    const refresh = async () => {
-      try { const product = await getGooglePlayProduct("pro"); if (active) { setPlayProduct(product); setPlayProductMissing(false); } }
-      catch { if (active) { setPlayProduct(null); setPlayProductMissing(true); } }
+    const refresh = async (forceRefresh = false) => {
+      try { const product = await getGooglePlayProduct("pro", forceRefresh); if (active) { setPlayProduct(product); setPlayProductMissing(false); } }
+      catch { if (active && !getCachedGooglePlayProduct("pro")) { setPlayProductMissing(true); } }
     };
     void refresh();
-    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(); });
+    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(true); });
     return () => { active = false; void listener.then((handle) => handle.remove()); };
   }, [native]);
 
@@ -74,19 +74,19 @@ export function CompanyBillingPanel({ profile, onError, onPurchased }: { profile
 
 export function OfferBoostButton({ offer, userId, onError, onPurchased }: { offer: JobOffer; userId: string; onError: (message: string) => void; onPurchased?: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [playProduct, setPlayProduct] = useState<Product | null>(null);
+  const [playProduct, setPlayProduct] = useState<Product | null>(() => getCachedGooglePlayProduct("offer_boost"));
   const native = getPaymentChannel() === "google_play";
   const boosted = Boolean(offer.is_boosted && offer.boost_expires_at && new Date(offer.boost_expires_at).getTime() > Date.now());
 
   useEffect(() => {
     if (!native) return;
     let active = true;
-    const refresh = async () => {
-      try { const product = await getGooglePlayProduct("offer_boost"); if (active) setPlayProduct(product); }
-      catch { if (active) setPlayProduct(null); }
+    const refresh = async (forceRefresh = false) => {
+      try { const product = await getGooglePlayProduct("offer_boost", forceRefresh); if (active) setPlayProduct(product); }
+      catch { if (active && !getCachedGooglePlayProduct("offer_boost")) setPlayProduct(null); }
     };
     void refresh();
-    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(); });
+    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(true); });
     return () => { active = false; void listener.then((handle) => handle.remove()); };
   }, [native]);
 

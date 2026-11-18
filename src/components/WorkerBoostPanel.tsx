@@ -5,12 +5,12 @@ import { App } from "@capacitor/app";
 import { ArrowUpRight, BadgeCheck, TrendingUp } from "lucide-react";
 import { supabase, type WorkerCard } from "@/lib/supabase";
 import { getPaymentChannel } from "@/lib/platform";
-import { getGooglePlayProduct, purchaseWithGooglePlay } from "@/lib/native-billing";
+import { getCachedGooglePlayProduct, getGooglePlayProduct, purchaseWithGooglePlay } from "@/lib/native-billing";
 import type { Product } from "@capgo/native-purchases";
 
 export function WorkerBoostPanel({ workerCard, userId, onError, onPurchased }: { workerCard: WorkerCard | null; userId: string; onError: (message: string) => void; onPurchased: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [playProduct, setPlayProduct] = useState<Product | null>(null);
+  const [playProduct, setPlayProduct] = useState<Product | null>(() => getCachedGooglePlayProduct("worker_boost"));
   const [now, setNow] = useState(() => Date.now());
   const native = getPaymentChannel() === "google_play";
   const boostExpiry = workerCard?.boost_expires_at ? new Date(workerCard.boost_expires_at).getTime() : 0;
@@ -28,12 +28,12 @@ export function WorkerBoostPanel({ workerCard, userId, onError, onPurchased }: {
   useEffect(() => {
     if (!native) return;
     let active = true;
-    const refresh = async () => {
-      try { const product = await getGooglePlayProduct("worker_boost"); if (active) setPlayProduct(product); }
-      catch { if (active) setPlayProduct(null); }
+    const refresh = async (forceRefresh = false) => {
+      try { const product = await getGooglePlayProduct("worker_boost", forceRefresh); if (active) setPlayProduct(product); }
+      catch { if (active && !getCachedGooglePlayProduct("worker_boost")) setPlayProduct(null); }
     };
     void refresh();
-    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(); });
+    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(true); });
     return () => { active = false; void listener.then((handle) => handle.remove()); };
   }, [native]);
 

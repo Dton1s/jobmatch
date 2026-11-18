@@ -4,14 +4,60 @@ import { GOOGLE_PLAY_PRODUCTS } from "@/lib/google-play-products";
 
 export type GooglePlayPurchaseKind = "pro" | "offer_boost" | "worker_boost";
 const pendingContextKey = "jobmatch.google-play-pending-purchase";
+type ProductType = typeof PURCHASE_TYPE[keyof typeof PURCHASE_TYPE];
+const PRODUCT_CACHE_TTL_MS = 60_000;
+const PRODUCT_RETRY_DELAY_MS = 2_000;
+const productCatalogs = new Map<ProductType, { products: Product[]; loadedAt: number }>();
+const productCatalogRequests = new Map<ProductType, Promise<Product[]>>();
 
-export async function getGooglePlayProduct(kind: GooglePlayPurchaseKind): Promise<Product> {
-  const product = GOOGLE_PLAY_PRODUCTS[kind === "pro" ? "pro" : kind === "offer_boost" ? "offerBoost" : "workerBoost"];
+function productConfig(kind: GooglePlayPurchaseKind) {
+  return GOOGLE_PLAY_PRODUCTS[kind === "pro" ? "pro" : kind === "offer_boost" ? "offerBoost" : "workerBoost"];
+}
+
+function findProduct(kind: GooglePlayPurchaseKind, products: Product[]): Product | undefined {
+  const config = productConfig(kind);
+  return kind === "pro"
+    ? products.find((item) => item.planIdentifier === config.productId && item.identifier === GOOGLE_PLAY_PRODUCTS.pro.basePlanId)
+    : products.find((item) => item.identifier === config.productId);
+}
+
+export function getCachedGooglePlayProduct(kind: GooglePlayPurchaseKind): Product | null {
   const type = kind === "pro" ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP;
-  const result = await NativePurchases.getProducts({ productIdentifiers: [product.productId], productType: type });
-  const match = kind === "pro"
-    ? result.products.find((item) => item.planIdentifier === product.productId && item.identifier === GOOGLE_PLAY_PRODUCTS.pro.basePlanId)
-    : result.products.find((item) => item.identifier === product.productId);
+  return findProduct(kind, productCatalogs.get(type)?.products ?? []) ?? null;
+}
+
+async function queryProductCatalog(type: ProductType, forceRefresh = false): Promise<Product[]> {
+  const cached = productCatalogs.get(type);
+  if (!forceRefresh && cached && Date.now() - cached.loadedAt < PRODUCT_CACHE_TTL_MS) return cached.products;
+  const pending = productCatalogRequests.get(type);
+  if (pending) return pending;
+
+  const productIdentifiers = type === PURCHASE_TYPE.SUBS
+    ? [GOOGLE_PLAY_PRODUCTS.pro.productId]
+    : [GOOGLE_PLAY_PRODUCTS.offerBoost.productId, GOOGLE_PLAY_PRODUCTS.workerBoost.productId];
+  const request = (async () => {
+    let { products } = await NativePurchases.getProducts({ productIdentifiers, productType: type });
+    if (!products.length) {
+      await new Promise((resolve) => window.setTimeout(resolve, PRODUCT_RETRY_DELAY_MS));
+      ({ products } = await NativePurchases.getProducts({ productIdentifiers, productType: type }));
+    }
+    if (products.length) productCatalogs.set(type, { products, loadedAt: Date.now() });
+    else productCatalogs.delete(type);
+    return products;
+  })();
+  productCatalogRequests.set(type, request);
+  try { return await request; }
+  finally { if (productCatalogRequests.get(type) === request) productCatalogRequests.delete(type); }
+}
+
+export async function getGooglePlayProduct(kind: GooglePlayPurchaseKind, forceRefresh = false): Promise<Product> {
+  const type = kind === "pro" ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP;
+  const products = await queryProductCatalog(type, forceRefresh);
+  let match = findProduct(kind, products);
+  if (!match && products.length) {
+    await new Promise((resolve) => window.setTimeout(resolve, PRODUCT_RETRY_DELAY_MS));
+    match = findProduct(kind, await queryProductCatalog(type, true));
+  }
   if (!match) throw new Error("Este producto todavía no está disponible en Google Play. Comprueba que esté activo en Play Console y vuelve a intentarlo.");
   return match;
 }
@@ -31,7 +77,7 @@ export async function purchaseWithGooglePlay(kind: GooglePlayPurchaseKind, userI
     transaction = await NativePurchases.purchaseProduct({
       productIdentifier: kind === "pro" ? product.planIdentifier! : product.identifier,
       productType: kind === "pro" ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP,
-      ...(kind === "pro" ? { planIdentifier: product.identifier } : { isConsumable: true }),
+      ...(kind === "pro" ? { planIdentifier: GOOGLE_PLAY_PRODUCTS.pro.basePlanId } : { isConsumable: true }),
       appAccountToken: accountToken,
       autoAcknowledgePurchases: false,
     });
