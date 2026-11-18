@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { syncGooglePlaySubscription } from "@/lib/native-billing";
+import { refreshGooglePlayProducts, syncGooglePlaySubscription } from "@/lib/native-billing";
 
 export function GooglePlayBillingSync({ userId, onSynced }: { userId: string; onSynced: () => void }) {
   const onSyncedRef = useRef(onSynced);
@@ -15,7 +15,11 @@ export function GooglePlayBillingSync({ userId, onSynced }: { userId: string; on
     const sync = async () => {
       if (!active || syncInFlight) return;
       syncInFlight = true;
-      try { await syncGooglePlaySubscription(userId); if (active) onSyncedRef.current(); }
+      try {
+        await refreshGooglePlayProducts();
+        await syncGooglePlaySubscription(userId);
+        if (active) onSyncedRef.current();
+      }
       catch { /* Play may be offline or unavailable; verified server entitlements remain in effect. */ }
       finally { syncInFlight = false; }
     };

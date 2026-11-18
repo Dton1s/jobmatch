@@ -7,9 +7,47 @@ export type GooglePlayPurchaseKind = "pro" | "offer_boost" | "worker_boost";
 const pendingContextKey = "jobmatch.google-play-pending-purchase";
 type ProductType = typeof PURCHASE_TYPE[keyof typeof PURCHASE_TYPE];
 const PRODUCT_CACHE_TTL_MS = 60_000;
-const PRODUCT_RETRY_DELAY_MS = 2_000;
+const PRODUCT_RETRY_DELAYS_MS = [800, 1_800, 3_500] as const;
 const productCatalogs = new Map<ProductType, { products: Product[]; loadedAt: number }>();
 const productCatalogRequests = new Map<ProductType, Promise<Product[]>>();
+let nativeOperationQueue: Promise<unknown> = Promise.resolve();
+let billingReadyRequest: Promise<void> | null = null;
+let catalogRefreshRequest: Promise<void> | null = null;
+
+function runNativeOperation<T>(operation: () => Promise<T>): Promise<T> {
+  // The Android plugin tears down and recreates BillingClient for each call.
+  // Serialize every bridge call so parallel inapp/subscription requests cannot
+  // close each other's connection while Google Play is still answering.
+  const request = nativeOperationQueue.then(operation, operation);
+  nativeOperationQueue = request.then(() => undefined, () => undefined);
+  return request;
+}
+
+function ensureBillingReady(reconnect = false): Promise<void> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+    return Promise.reject(new Error("Google Play Billing solo está disponible en Android."));
+  }
+  if (!Capacitor.isPluginAvailable("NativePurchases")) {
+    return Promise.reject(new Error("El servicio de compras todavía se está iniciando. Vuelve a intentarlo en unos segundos."));
+  }
+  if (reconnect) billingReadyRequest = null;
+  if (!billingReadyRequest) {
+    const request = runNativeOperation(async () => {
+      const { isBillingSupported } = await NativePurchases.isBillingSupported();
+      if (!isBillingSupported) throw new Error("Google Play Billing no está disponible en este dispositivo.");
+    });
+    const guardedRequest = request.catch((error: unknown) => {
+      if (billingReadyRequest === guardedRequest) billingReadyRequest = null;
+      throw error;
+    });
+    billingReadyRequest = guardedRequest;
+  }
+  return billingReadyRequest;
+}
+
+function waitForRetry(delayMs: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, delayMs));
+}
 
 function productConfig(kind: GooglePlayPurchaseKind) {
   return GOOGLE_PLAY_PRODUCTS[kind === "pro" ? "pro" : kind === "offer_boost" ? "offerBoost" : "workerBoost"];
@@ -38,13 +76,23 @@ async function queryProductCatalog(type: ProductType, forceRefresh = false): Pro
     ? [GOOGLE_PLAY_PRODUCTS.pro.productId]
     : [GOOGLE_PLAY_PRODUCTS.offerBoost.productId, GOOGLE_PLAY_PRODUCTS.workerBoost.productId];
   const request = (async () => {
-    let { products } = await NativePurchases.getProducts({ productIdentifiers, productType: type });
-    if (!products.length) {
-      await new Promise((resolve) => window.setTimeout(resolve, PRODUCT_RETRY_DELAY_MS));
-      ({ products } = await NativePurchases.getProducts({ productIdentifiers, productType: type }));
+    let products: Product[] = [];
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= PRODUCT_RETRY_DELAYS_MS.length; attempt += 1) {
+      if (attempt > 0) await waitForRetry(PRODUCT_RETRY_DELAYS_MS[attempt - 1]);
+      try {
+        await ensureBillingReady(attempt > 0 || forceRefresh);
+        const response = await runNativeOperation(() => NativePurchases.getProducts({ productIdentifiers, productType: type }));
+        products = response.products;
+        lastError = undefined;
+        if (products.length >= productIdentifiers.length) break;
+      } catch (error) {
+        lastError = error;
+      }
     }
     if (products.length) productCatalogs.set(type, { products, loadedAt: Date.now() });
     else productCatalogs.delete(type);
+    if (!products.length && lastError) throw lastError;
     return products;
   })();
   productCatalogRequests.set(type, request);
@@ -56,10 +104,6 @@ export async function getGooglePlayProduct(kind: GooglePlayPurchaseKind, forceRe
   const type = kind === "pro" ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP;
   const products = await queryProductCatalog(type, forceRefresh);
   let match = findProduct(kind, products);
-  if (!match && products.length) {
-    await new Promise((resolve) => window.setTimeout(resolve, PRODUCT_RETRY_DELAY_MS));
-    match = findProduct(kind, await queryProductCatalog(type, true));
-  }
   if (!match) throw new Error("Este producto todavía no está disponible en Google Play. Comprueba que esté activo en Play Console y vuelve a intentarlo.");
   return match;
 }
@@ -76,13 +120,14 @@ export async function purchaseWithGooglePlay(kind: GooglePlayPurchaseKind, userI
   if (typeof window !== "undefined") window.localStorage.setItem(pendingContextKey, JSON.stringify({ kind, offerId }));
   let transaction;
   try {
-    transaction = await NativePurchases.purchaseProduct({
+    await ensureBillingReady();
+    transaction = await runNativeOperation(() => NativePurchases.purchaseProduct({
       productIdentifier: kind === "pro" ? product.planIdentifier! : product.identifier,
       productType: kind === "pro" ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP,
       ...(kind === "pro" ? { planIdentifier: GOOGLE_PLAY_PRODUCTS.pro.basePlanId } : { isConsumable: true }),
       appAccountToken: accountToken,
       autoAcknowledgePurchases: false,
-    });
+    }));
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
     if (code !== "PENDING" && typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
@@ -103,7 +148,8 @@ export async function syncGooglePlaySubscription(userId: string): Promise<void> 
   const accessToken = data.session?.access_token;
   if (!accessToken) return;
   const accountToken = await obfuscateAccountId(userId);
-  const { purchases } = await NativePurchases.getPurchases({ productType: PURCHASE_TYPE.SUBS, appAccountToken: accountToken });
+  await ensureBillingReady();
+  const { purchases } = await runNativeOperation(() => NativePurchases.getPurchases({ productType: PURCHASE_TYPE.SUBS, appAccountToken: accountToken }));
   let verifiedPro = false;
   for (const purchase of purchases) {
     if (purchase.productIdentifier !== GOOGLE_PLAY_PRODUCTS.pro.productId || !purchase.purchaseToken || purchase.purchaseState !== "1") continue;
@@ -113,13 +159,36 @@ export async function syncGooglePlaySubscription(userId: string): Promise<void> 
 
   const pending = readPendingPurchaseContext();
   if (pending?.kind === "pro" && verifiedPro && typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
-  if (!pending || pending.kind === "pro") return;
-  const { purchases: oneTimePurchases } = await NativePurchases.getPurchases({ productType: PURCHASE_TYPE.INAPP, appAccountToken: accountToken });
-  const expectedProductId = pending.kind === "offer_boost" ? GOOGLE_PLAY_PRODUCTS.offerBoost.productId : GOOGLE_PLAY_PRODUCTS.workerBoost.productId;
-  const transaction = oneTimePurchases.find((purchase) => purchase.productIdentifier === expectedProductId && purchase.purchaseState === "1" && purchase.purchaseToken);
-  if (!transaction?.purchaseToken || (pending.kind === "offer_boost" && !pending.offerId)) return;
-  const result = await verifyPurchaseWithBackend(accessToken, { kind: pending.kind, purchase_token: transaction.purchaseToken, offer_id: pending.offerId });
-  if (result.ok && typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
+  const { purchases: oneTimePurchases } = await runNativeOperation(() => NativePurchases.getPurchases({ productType: PURCHASE_TYPE.INAPP, appAccountToken: accountToken }));
+  const unconsumedBoosts = oneTimePurchases.filter((purchase) => purchase.purchaseState === "1" && purchase.purchaseToken
+    && (purchase.productIdentifier === GOOGLE_PLAY_PRODUCTS.offerBoost.productId || purchase.productIdentifier === GOOGLE_PLAY_PRODUCTS.workerBoost.productId));
+  for (const purchase of unconsumedBoosts) {
+    const kind: GooglePlayPurchaseKind = purchase.productIdentifier === GOOGLE_PLAY_PRODUCTS.offerBoost.productId ? "offer_boost" : "worker_boost";
+    // An offer boost is tied to a specific offer; only the saved pre-purchase
+    // context can safely tell the server which one to activate.
+    const offerId = kind === "offer_boost" && pending?.kind === kind ? pending.offerId : undefined;
+    if (kind === "offer_boost" && !offerId) continue;
+    if (kind === "worker_boost" && pending && pending.kind !== kind) continue;
+    const result = await verifyPurchaseWithBackend(accessToken, { kind, purchase_token: purchase.purchaseToken!, offer_id: offerId });
+    if (result.ok && pending?.kind === kind && typeof window !== "undefined") window.localStorage.removeItem(pendingContextKey);
+  }
+}
+
+export async function refreshGooglePlayProducts(): Promise<void> {
+  if (catalogRefreshRequest) return catalogRefreshRequest;
+  billingReadyRequest = null;
+  const request = (async () => {
+    await queryProductCatalog(PURCHASE_TYPE.INAPP, true);
+    await queryProductCatalog(PURCHASE_TYPE.SUBS, true);
+  })();
+  catalogRefreshRequest = request;
+  try { await request; }
+  finally { if (catalogRefreshRequest === request) catalogRefreshRequest = null; }
+}
+
+export async function openGooglePlaySubscriptionManagement(): Promise<void> {
+  await ensureBillingReady();
+  await runNativeOperation(() => NativePurchases.manageSubscriptions());
 }
 
 async function verifyPurchaseWithBackend(accessToken: string, data: Record<string, string | undefined>): Promise<{ ok: boolean; error?: string }> {

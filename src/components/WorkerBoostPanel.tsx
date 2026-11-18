@@ -41,7 +41,10 @@ export function WorkerBoostPanel({ workerCard, userId, onError, onPurchased }: {
     if (getPaymentChannel() === "google_play") {
       if (busy || !workerCard) return;
       setBusy(true); onError("");
-      try { await purchaseWithGooglePlay("worker_boost", userId); onPurchased(); }
+      try {
+        if (!playProduct) { setPlayProduct(await getGooglePlayProduct("worker_boost", true)); return; }
+        await purchaseWithGooglePlay("worker_boost", userId); onPurchased();
+      }
       catch (cause) { onError(cause instanceof Error ? cause.message : "No se pudo completar la compra con Google Play."); }
       finally { setBusy(false); }
       return;
@@ -81,8 +84,8 @@ export function WorkerBoostPanel({ workerCard, userId, onError, onPurchased }: {
         ? <p className="worker-boost-status">Publica una ficha de trabajador activa para poder impulsarla.</p>
         : <p className="worker-boost-status">Destaca tu perfil para que más empresas lo vean en Descubrir.</p>}
     {native && !playProduct && !boosted && workerCard?.is_active && !workerCard.is_demo && <small className="billing-store-note">El producto de impulso aún no está disponible en Google Play.</small>}
-    <button className="worker-boost-button" disabled={busy || boosted || !workerCard?.is_active || Boolean(workerCard?.is_demo) || (native && !playProduct)} onClick={() => void startCheckout()}>
-      <ArrowUpRight size={14}/>{busy ? (native ? "Procesando compra…" : "Abriendo pago…") : boosted ? `Impulso activo · ${remaining}` : native ? `Impulsar mi perfil · ${playProduct?.priceString ?? "Google Play"} (7 días)` : "Impulsar mi perfil por 1,99 € (7 días)"}
+    <button className="worker-boost-button" disabled={busy || boosted || !workerCard?.is_active || Boolean(workerCard?.is_demo)} onClick={() => void startCheckout()}>
+      <ArrowUpRight size={14}/>{busy ? (native ? (playProduct ? "Procesando compra…" : "Comprobando Google Play…") : "Abriendo pago…") : boosted ? `Impulso activo · ${remaining}` : native ? playProduct ? `Impulsar mi perfil · ${playProduct.priceString} (7 días)` : "Reintentar Google Play" : "Impulsar mi perfil por 1,99 € (7 días)"}
     </button>
   </section>;
 }
