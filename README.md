@@ -2,7 +2,7 @@
 
 Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofertas con salario visible, intereses mutuos y chat, con filtros de distancia que pueden superar los 50 km. La interfaz es mobile-first y se exporta como sitio estático de Next.js; Capacitor puede cargar esa exportación como aplicación Android.
 
-> **Estado revisado el 16 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario.
+> **Estado revisado el 17 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario.
 
 ## Índice
 
@@ -30,16 +30,18 @@ Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofert
 - Operador: **Antonio Meroño Estañ**, persona física autónoma y titular legal del servicio, NIF indicado en la documentación legal. **Nebula Digital Studio** se usa como nombre comercial/estudio que gestiona el servicio; no es una sociedad distinta del titular.
 - Supabase conectado actualmente: instancia compartida con otros proyectos de Nébula, que mantiene la aplicación web en producción. El aislamiento de Job Match es a nivel de esquema: sus tablas, tipos, funciones, triggers, índices y políticas usan el prefijo estricto `jobmatch_`; los buckets dedicados son `jobmatch-media` y `jobmatch-cvs`. La instancia compartida no se presenta como una base exclusiva.
 - Monetización: Boost (7,99 € por 7 días) y Job Match Pro (19,99 €/mes). Según confirmación del propietario, Stripe está en modo Live y su webhook de producción está activo en `https://job-match.es/api/webhooks/stripe` con los siete eventos documentados más abajo. Vercel confirma que `STRIPE_WEBHOOK_SECRET` se actualizó el 16-11-2026 a las 16:13 UTC y que después quedó `READY` un despliegue de producción (16:14 UTC). La infraestructura de pagos se considera configurada y operativa; la clave no se copia al repositorio.
+- **Google Play Billing** ya está integrado en código para Pro (suscripción) y Boost de oferta/perfil (pagos únicos), con verificación del token en servidor y registro idempotente en Supabase. Para habilitar compras reales de prueba faltan la migración SQL `supabase/google_play_billing.sql`, crear y activar los tres productos/base plan en Play Console, dar acceso a un service account de Google Play Developer API y cargar su JSON privado en Vercel como `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
+- **Actualizaciones Android**: `@capawesome/capacitor-app-update` consulta disponibilidad mediante Play Core al abrir la app y al volver a primer plano. Si Google Play admite el flujo flexible, el botón inicia la descarga dentro de la app y permite reiniciar para instalar; si solo admite el flujo inmediato, lo ejecuta. Si Play no permite ninguno, abre la ficha de Job Match en Play Store como alternativa.
 - PWA instalada: manifest con nombre e iconos de JobMatch, `display: standalone` y banner de instalación para Chromium en PC/Android, con instrucciones manuales para Safari en iOS. La app no anuncia modo sin conexión ni registra un service worker.
 - Identidad visual: logo, banner, icono maestro de la app y favicons/iconos PWA están incorporados al repositorio. El logotipo gráfico conserva el wordmark compacto `jobmatch`, mientras la interfaz y la ficha de tienda utilizan **Job Match**.
 - Correo corporativo: el propietario confirma que Nominalia tiene creados y activos `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es`. Privacidad y Soporte son los contactos públicos; Administración queda para gestiones internas hasta definir flujos específicos.
-- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. El siguiente hito técnico inmediato es inicializar Android con Capacitor (`npx cap add android`); todavía no hay carpeta `android/`, APK ni AAB publicados.
+- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. La plataforma Android de Capacitor ya está creada en `android/`, sincronizada con `out/` y abierta en Android Studio; falta revisar configuración, recursos y compilación/firma del AAB.
 
 ## Estado de lanzamiento
 
 La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado en el proyecto y sirve la producción. El último despliegue de producción observado está `READY`; el subdominio `jobmatch.nebuladigitalstudio.es` permanece conectado como origen anterior.
 
-> **Infraestructura web completada al 100% según confirmación operativa del propietario:** Vercel, dominio canónico con SSL, buzones de Nominalia, Stripe Live con webhook activo y SEO (rastreo y Search Console). El hito técnico inmediato pendiente es crear la plataforma Android con Capacitor.
+> **Infraestructura web completada al 100% según confirmación operativa del propietario:** Vercel, dominio canónico con SSL, buzones de Nominalia, Stripe Live con webhook activo y SEO (rastreo y Search Console). La plataforma Android ya está inicializada; el siguiente hito es validar OAuth, recursos y compilación firmada.
 
 | Área | Estado a 16-11-2026 |
 | --- | --- |
@@ -50,7 +52,7 @@ La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado
 | Stripe | Infraestructura configurada en modo Live; webhook de producción activo según confirmación del propietario. Checkout controlado, reembolsos y facturación siguen siendo validaciones operativas recomendadas. |
 | Nombre, dominio y correo | Nombre **Job Match**, `https://job-match.es`, SSL y los tres buzones de Nominalia operativos según confirmación del propietario. |
 | SEO | `public/robots.txt` y `public/sitemap.xml` están desplegados y verificados con HTTP 200. El sitemap lista las cinco páginas públicas principales; la propiedad de Google Search Console está verificada. |
-| Android / Google Play | Capacitor configurado; la carpeta `android/`, APK/AAB firmado y publicación no están en este repositorio. |
+| Android / Google Play | App v3 instalada desde Play según confirmación del propietario. Código preparado para la siguiente versión: Billing, verificación de compras y aviso de actualización. Falta aplicar SQL, configurar productos/credenciales en Play/Vercel y generar/publicar el AAB v4 para probarlo desde Google Play. |
 
 La producción web utiliza la instancia Supabase compartida existente. Los objetos de base de datos propios de Job Match se aíslan mediante el prefijo estricto `jobmatch_` en tablas, funciones y políticas; esta separación de esquema permite operar la aplicación actual sin presentarla como un proyecto Supabase exclusivo. Una futura migración a una instancia dedicada se planificará con backup, validación y despliegue controlado.
 
@@ -67,8 +69,8 @@ La producción web utiliza la instancia Supabase compartida existente. Los objet
 
 ### Próximo hito técnico
 
-1. Inicializar la plataforma Android con `npx cap add android`.
-2. Configurar OAuth/deep links, permisos y recursos nativos; sincronizar con `npx cap sync android` y probar en dispositivos antes de generar el AAB.
+1. Revisar en Android Studio el proyecto `android/` y validar el intent filter OAuth `es.nebuladigitalstudio.jobmatch://auth/callback` junto con las URLs de redirección de Supabase.
+2. Configurar recursos nativos y revisar permisos; ejecutar `npm run build` y `npx cap sync android`, y probar en dispositivos antes de generar el AAB.
 3. En paralelo, mantener las pruebas operativas de Checkout, webhook, renovación, cancelación y reembolso antes de ampliar el volumen de pagos.
 
 El código de Checkout y el webhook de Stripe están en el repositorio. La cuenta de Stripe no está conectada a esta auditoría; el estado Live y el endpoint activo se documentan según confirmación del propietario. La publicación de infraestructura no sustituye las pruebas operativas periódicas de pagos.
@@ -151,6 +153,7 @@ Los scripts SQL pertenecen a esta app:
 - `supabase/upgrade_monetization.sql`: columnas de Boost y Pro, historial idempotente de eventos Stripe, protección de campos de pago y RPC para contacto directo Pro. Aplícalo una vez en el SQL Editor del proyecto antes de habilitar cobros.
 - `supabase/free_offer_limit.sql`: aplica el máximo de tres ofertas activas en el plan gratuito y deja ilimitadas las empresas con Pro vigente. Ejecútalo en el SQL Editor de Supabase.
 - `supabase/seed_demo.sql`: carga opcional de 50 perfiles y 50 ofertas ficticios, con IDs deterministas para que se pueda volver a ejecutar. Las fichas usan nombres genéricos de muestra, avatares ilustrados y avisos visibles; no representan personas o negocios reales. Lánzalo manualmente en Supabase solo cuando se quiera probar la experiencia con contenido de muestra.
+- El descubrimiento consulta todas las fichas y ofertas activas sin filtrar `is_demo`; si el mazo incluye registros ficticios, muestra un aviso global. Esos registros no crean matches ni conversaciones.
 - `supabase/remove_demo_data.sql`: elimina exclusivamente filas marcadas `is_demo=true` y sus relaciones dependientes. Ejecútalo cuando ya no se necesite el contenido de muestra.
 
 Para una base nueva, ejecuta `schema.sql` y las migraciones incrementales aplicables, incluidas `legal_and_delete_account.sql` y `free_offer_limit.sql`. El seed es opcional y no se aplica en despliegues nuevos automáticamente. Las fichas de muestra aparecen identificadas en el mazo, no registran vistas ni swipes, y no pueden crear matches ni chats. Para una base existente, identifica primero qué migraciones ya se ejecutaron y aplica solo las siguientes en orden; no vuelvas a ejecutar una instalación completa encima de datos reales.
@@ -186,8 +189,21 @@ Los avatares, logos y audios se guardan en `jobmatch-media`, que permite lectura
 
 - **Precio y vigencia:** pago único de 1,99 € para impulsar una ficha de trabajador durante 7 días. Las fichas impulsadas vigentes se priorizan en la búsqueda de empresas.
 - **Checkout:** `api/checkout/worker-boost.ts` valida sesión y modo Trabajador en servidor, y crea la sesión Stripe con `user_id` en metadata. El webhook activa el impulso mediante `jobmatch_apply_worker_boost`, con deduplicación de eventos Stripe.
-- **Interfaz:** el panel `Perfil y ajustes` del modo Trabajador muestra si el impulso está activo y cuánto tiempo queda. El Checkout se oculta en Android hasta integrar Google Play Billing.
+- **Interfaz:** el panel `Perfil y ajustes` del modo Trabajador muestra si el impulso está activo y cuánto tiempo queda. En web usa Stripe; Android muestra precio localizado de Google Play y compra nativa.
 - **Migración Supabase:** aplica `supabase/upgrade_worker_boost.sql` una vez en el proyecto conectado. El script añade campos de vigencia, impide cambios de entitlement desde clientes autenticados y habilita el RPC solo para `service_role`. `supabase/schema.sql` también incluye el esquema para instalaciones nuevas.
+
+### Google Play Billing para Android
+
+- El proyecto usa `@capgo/native-purchases` para Google Play Billing 8.3 y `@capawesome/capacitor-app-update` para las actualizaciones de Play Core. La web conserva Stripe; Android no abre Stripe.
+- Product IDs requeridos (crear con estos identificadores exactos en Play Console): `jobmatch_pro` con base plan `monthly` y renovación mensual a 19,99 €; `jobmatch_offer_boost_7d` como producto de un solo uso a 7,99 €; `jobmatch_worker_boost_7d` como producto de un solo uso a 1,99 €. La interfaz toma el precio localizado que devuelve Google Play.
+- Antes de probar: aplicar `supabase/google_play_billing.sql`; habilitar Google Play Android Developer API y vincular el service account con permisos de gestión de pedidos/suscripciones en Play Console; añadir su JSON completo en Vercel Production como `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`; redesplegar las funciones. No subir el JSON al repositorio.
+- Las compras se validan en el servidor con la API Android Publisher, se vinculan a un hash de la cuenta Job Match y se registran por hash del purchase token para impedir duplicados y reutilización entre cuentas. El servidor activa los beneficios y consume Boosts o confirma Pro únicamente tras validar el pago.
+- Añadir los testers a la lista de License Testing y al track de testing. Deben instalar la versión desde Google Play, no mediante APK sideload. Los productos deben estar activos y disponibles para el track.
+- El estado Pro se vuelve a consultar en Google Play al entrar y al regresar a la app; los paneles de facturación vuelven a consultar también el catálogo y el precio localizado al abrirse y al volver a primer plano. La vigencia almacenada limita el acceso hasta la fecha confirmada por Google. Si falla el acuse/consumo tras validar una compra, la app conserva el contexto pendiente y vuelve a intentarlo al reanudar. Para operación comercial completa, configurar Real-time Developer Notifications para procesar reembolsos y cambios de suscripción en cuanto ocurran.
+
+### Actualizaciones desde Play Store
+
+La app consulta In-App Updates de Google Play en el arranque y al volver a primer plano. Si el dispositivo tiene una versión más reciente disponible en su canal de Play, presenta “Actualización disponible” y `Actualizar` inicia la descarga flexible o el flujo inmediato nativo, según lo permita Play. El aviso ofrece reiniciar cuando la descarga flexible está lista; si no hay un flujo nativo permitido, abre la ficha de Play Store. El aviso no se activa en navegador web ni cuando Play no ofrece una actualización a esa cuenta/dispositivo.
 
 ## Variables de entorno
 
@@ -215,6 +231,7 @@ Se comprobó la lista de nombres de variables de Production del proyecto Vercel 
 | `STRIPE_BOOST_PRICE_ID` | Está configurada, pero el endpoint Boost actual fija 7,99 EUR usando `price_data` y no la lee. |
 | `STRIPE_WEBHOOK_SECRET` | Firma para validar el webhook. Actualizada el 16-11-2026 16:13 UTC; despliegue Production posterior en estado `READY` a las 16:14 UTC. No publicar el valor `whsec_...`. |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Está configurada; actualmente el flujo de Checkout servidor no la consume. |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | **Pendiente de configurar** tras crear el service account y concederle acceso a la app en Play Console. JSON privado de Android Publisher API, usado solo por `/api/google-play/verify-purchase`. |
 
 La auditoría de Vercel del 16-11-2026 encontró todas las claves esperadas en Production: no falta ninguna variable requerida en el inventario. Los secretos no se revelan ni se copian a este archivo. `STRIPE_BOOST_PRICE_ID` y `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` existen pero el checkout de servidor actual no los consume; el endpoint Boost construye su precio inline. `.env.example` es una plantilla local con marcadores, no una copia del entorno Live.
 
@@ -230,7 +247,7 @@ El manifest usa rutas relativas (`/`) y no queda ligado a un dominio. El banner 
 
 ## Capacitor y Android
 
-`capacitor.config.ts` apunta a `webDir: "out"` y define el esquema Android `https`. En este repositorio **todavía no hay carpeta `android/`**, por tanto `cap sync android` no puede completar la sincronización inicial hasta añadir la plataforma.
+`capacitor.config.ts` apunta a `webDir: "out"` y define el esquema Android `https`. La plataforma nativa ya se creó en `android/`; la exportación estática se copia a `android/app/src/main/assets/public/` mediante `npx cap sync android`.
 
 Primer alta de Android:
 
@@ -239,7 +256,7 @@ npm run build
 npx cap add android
 ```
 
-Después configura el intent filter del callback en `android/app/src/main/AndroidManifest.xml` para el esquema `es.nebuladigitalstudio.jobmatch`, host `auth` y ruta `/callback`, con las categorías `DEFAULT` y `BROWSABLE`. Revisa también los permisos de micrófono y ubicación. La marca actual incluye `public/branding/jobmatch-logo.png`, `public/branding/jobmatch-banner.png`, los iconos PWA (`public/favicon.ico`, PNG y `public/icon-192.png` / `public/icon-512.png`) y el máster de app `resources/icon.png`. El manifest web y los metadatos de Next ya apuntan a los iconos actuales. Cuando añadas Android, genera los recursos nativos con `npx @capacitor/assets generate --android` (requiere instalar `@capacitor/assets` como dependencia de desarrollo) y comprueba el icono adaptativo en un dispositivo. Si se cambia la marca antes de publicar, actualiza también `appName`, los recursos y los enlaces de tienda; si se cambia `appId`, hazlo antes de la primera publicación para no romper la continuidad de la aplicación en Play Console.
+El manifiesto `android/app/src/main/AndroidManifest.xml` ya declara el intent filter OAuth para `es.nebuladigitalstudio.jobmatch://auth/callback`, con las categorías `DEFAULT` y `BROWSABLE`. Revisa también los permisos de micrófono y ubicación. La versión preparada para el siguiente AAB es `versionCode 4` / `versionName 1.0.2`. El plugin de compras incorpora Google Play Billing 8.3.0; el plugin de actualizaciones usa la API de In-App Updates de Google Play.
 
 Sincronización y apertura posteriores:
 
@@ -248,6 +265,8 @@ npm run build
 npm run cap:sync
 npm run cap:open
 ```
+
+Después de aplicar la migración SQL, configurar los productos en Play Console y añadir `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` a Vercel, genera un AAB firmado con Android Studio y súbelo al track de testing. Los testers deben instalarlo desde Play Store para que Billing y la consulta de actualizaciones estén disponibles.
 
 En Android Studio genera y firma un Android App Bundle (`.aab`) para Play Console. Usa el mismo `applicationId` en todas las versiones publicadas y guarda de forma segura el keystore y sus copias de seguridad. El proyecto nativo, el intent filter, el icono de Play y la compilación firmada requieren validación en Android Studio/dispositivo; no pueden confirmarse desde el build web.
 
@@ -295,7 +314,7 @@ La app desplegada utiliza Supabase compartido con otros productos y mantiene su 
 ### 5. APK/AAB y publicación en Google Play
 
 1. Tras la verificación de Play Console, crear el registro de la app y completar clasificación de contenido, seguridad de datos, política de privacidad, URL de eliminación y ficha de tienda. Nombre público previsto: **Job Match - Trabajo y Empleo**.
-2. Añadir la plataforma `android/` con Capacitor (`npx cap add android`) y configurar intent filter OAuth, enlaces, permisos y barra de estado.
+2. Revisar el proyecto `android/` ya creado y configurar enlaces, permisos y barra de estado; validar OAuth/deep links con Supabase.
 3. Generar recursos adaptativos Android a partir del máster y validar icono, splash, banner e identidad visual en varios tamaños.
 4. Confirmar dominio y Supabase destino que usará la app, compilar web, ejecutar `npx cap sync android` y revisar que la salida `out/` corresponda al commit esperado.
 5. Generar APK para pruebas internas y AAB firmado para Play Console. Guardar keystore y credenciales fuera del repositorio, con copia de seguridad y acceso restringido.

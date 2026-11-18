@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
 import { ArrowUpRight, BadgeCheck, TrendingUp } from "lucide-react";
 import { supabase, type WorkerCard } from "@/lib/supabase";
+import { getPaymentChannel } from "@/lib/platform";
+import { getGooglePlayProduct, purchaseWithGooglePlay } from "@/lib/native-billing";
+import type { Product } from "@capgo/native-purchases";
 
-export function WorkerBoostPanel({ workerCard, onError }: { workerCard: WorkerCard | null; onError: (message: string) => void }) {
+export function WorkerBoostPanel({ workerCard, userId, onError, onPurchased }: { workerCard: WorkerCard | null; userId: string; onError: (message: string) => void; onPurchased: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [playProduct, setPlayProduct] = useState<Product | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const native = Capacitor.isNativePlatform();
+  const native = getPaymentChannel() === "google_play";
   const boostExpiry = workerCard?.boost_expires_at ? new Date(workerCard.boost_expires_at).getTime() : 0;
   const boosted = Boolean(workerCard?.is_boosted && boostExpiry > now);
   const hoursRemaining = boosted ? Math.ceil((boostExpiry - now) / (60 * 60 * 1000)) : 0;
@@ -21,8 +25,28 @@ export function WorkerBoostPanel({ workerCard, onError }: { workerCard: WorkerCa
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!native) return;
+    let active = true;
+    const refresh = async () => {
+      try { const product = await getGooglePlayProduct("worker_boost"); if (active) setPlayProduct(product); }
+      catch { if (active) setPlayProduct(null); }
+    };
+    void refresh();
+    const listener = App.addListener("appStateChange", ({ isActive }) => { if (isActive) void refresh(); });
+    return () => { active = false; void listener.then((handle) => handle.remove()); };
+  }, [native]);
+
   async function startCheckout() {
-    if (!supabase || busy || native) return;
+    if (getPaymentChannel() === "google_play") {
+      if (busy || !workerCard) return;
+      setBusy(true); onError("");
+      try { await purchaseWithGooglePlay("worker_boost", userId); onPurchased(); }
+      catch (cause) { onError(cause instanceof Error ? cause.message : "No se pudo completar la compra con Google Play."); }
+      finally { setBusy(false); }
+      return;
+    }
+    if (!supabase || busy) return;
     setBusy(true);
     onError("");
     try {
@@ -56,9 +80,9 @@ export function WorkerBoostPanel({ workerCard, onError }: { workerCard: WorkerCa
       : !workerCard || !workerCard.is_active || workerCard.is_demo
         ? <p className="worker-boost-status">Publica una ficha de trabajador activa para poder impulsarla.</p>
         : <p className="worker-boost-status">Destaca tu perfil para que más empresas lo vean en Descubrir.</p>}
-    {!native && <button className="worker-boost-button" disabled={busy || boosted || !workerCard?.is_active || Boolean(workerCard?.is_demo)} onClick={() => void startCheckout()}>
-      <ArrowUpRight size={14}/>{busy ? "Abriendo pago…" : boosted ? `Impulso activo · ${remaining}` : "Impulsar mi perfil por 1,99 € (7 días)"}
-    </button>}
-    {native && <small className="billing-expiry">Los pagos desde Android estarán disponibles al integrar Google Play Billing.</small>}
+    {native && !playProduct && !boosted && workerCard?.is_active && !workerCard.is_demo && <small className="billing-store-note">El producto de impulso aún no está disponible en Google Play.</small>}
+    <button className="worker-boost-button" disabled={busy || boosted || !workerCard?.is_active || Boolean(workerCard?.is_demo) || (native && !playProduct)} onClick={() => void startCheckout()}>
+      <ArrowUpRight size={14}/>{busy ? (native ? "Procesando compra…" : "Abriendo pago…") : boosted ? `Impulso activo · ${remaining}` : native ? `Impulsar mi perfil · ${playProduct?.priceString ?? "Google Play"} (7 días)` : "Impulsar mi perfil por 1,99 € (7 días)"}
+    </button>
   </section>;
 }
