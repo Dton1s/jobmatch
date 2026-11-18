@@ -154,3 +154,28 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .sample-feed-notice{width:min(100%,520px);margin:0 auto 8px;padding:8px 11px;border:1px solid #d9e3b9;border-radius:10px;background:#f2f6e7;color:#59643c;font-size:10px;line-height:1.4;text-align:center}
 .billing-store-note{display:block;margin-top:7px;color:#64748b;font-size:10px;line-height:1.4}
 .native-boost-action{display:grid;justify-items:start;gap:4px}.native-boost-action small{font-size:9px;line-height:1.3;color:#64748b}
+
+/* Keep offer details, controls, and boost actions in separate rows on narrow screens. */
+.managed-offer{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:11px}
+.managed-offer-top{display:flex;align-items:flex-start;gap:9px;width:100%;min-width:0}
+.managed-offer-main{align-items:flex-start;padding:0;min-width:0}
+.managed-offer-main>span:nth-child(2){min-width:0;flex:1}
+.managed-offer-main b{display:block;overflow:visible;white-space:normal;text-overflow:clip;overflow-wrap:anywhere;font-size:12px;line-height:1.35}
+.managed-offer-main small{display:block;margin-top:2px;white-space:normal;overflow-wrap:anywhere;font-size:10px;line-height:1.4}
+.managed-offer-main>svg{flex:none;margin:2px 0 0 3px}
+.managed-offer-toggle{align-self:flex-start;flex:none;padding:6px 8px;border:1px solid #e1e7d5;border-radius:999px;background:#fff;color:#687a2c;font-size:10px;font-weight:700;white-space:nowrap}
+.managed-offer-boost,.settings-offer-boost{width:100%;border-top:1px solid #edf0e8;padding-top:10px}
+.managed-offer-boost .native-boost-action,.settings-offer-boost .native-boost-action{justify-items:start;gap:5px}
+.managed-offer-boost .offer-boost-button,.settings-offer-boost .offer-boost-button{max-width:100%;width:auto;min-height:34px;padding:8px 12px;font-size:11px;white-space:normal;text-align:center}
+.managed-offer-boost .native-boost-action small,.settings-offer-boost .native-boost-action small{max-width:100%;font-size:11px;line-height:1.5;white-space:normal}
+.settings-offers>.settings-offer-card{display:grid;gap:10px;padding:11px}
+.settings-offer-top{display:flex;align-items:flex-start;gap:9px;min-width:0}
+.settings-offer-info{display:grid;flex:1;min-width:0;gap:3px}
+.settings-offer-info b{font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.settings-offer-info small{font-size:10px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.settings-offer-toggle{align-self:flex-start;flex:none;padding:6px 8px!important;border:1px solid #e1e7d5!important;border-radius:999px;background:#fff!important;font-size:10px!important;white-space:nowrap}
+.deck-details-choice-actions{display:flex;flex:1;min-width:0;gap:12px}
+.deck-details-actions.has-pro-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+.deck-details-actions.has-pro-actions>.pro-contact-button{width:100%;min-height:48px;flex:none;gap:8px;padding:10px 14px;white-space:nowrap}
+.deck-details-actions.has-pro-actions>.deck-details-choice-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
+.deck-details-actions.has-pro-actions .deck-details-choice-actions>button{width:100%;min-width:0;flex:none;gap:6px;padding:9px 8px;white-space:nowrap}

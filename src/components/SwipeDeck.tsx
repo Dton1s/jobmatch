@@ -121,7 +121,13 @@ function SwipeDeckCard({ role, card, active, visible, isPro, onContactDirect, on
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{visible && active && detailsOpen && <motion.div className="sheet-backdrop deck-details-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDetailsOpen(false)}><motion.section className="details-sheet deck-details-modal" initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 280 }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalles completos">
       <header className="deck-details-header"><div className="deck-details-heading"><h2>{title}</h2><p>{detailPosition} · {detailLocation}</p><div><span><MapPin size={13}/>{formatDistance(card.distanceKm ?? 0)}</span>{detailBadge&&<span>{detailBadge}</span>}</div></div><CloseButton className="sheet-close" onClick={() => setDetailsOpen(false)} label="Cerrar detalles"/></header>
       <div className="deck-details-body">{job ? <OfferDetails offer={job}/> : worker && <CandidateDetails worker={worker} audioRef={audioRef} audioPlaying={audioPlaying} onToggleAudio={toggleAudio}/>}</div>
-      <footer className="deck-details-actions">{role==="company"&&worker&&!worker.is_demo&&isPro&&<button className="secondary-button pro-contact-button" onClick={()=>{setDetailsOpen(false);onContactDirect(card);}}><MessageCircle size={16}/> Escribir con Pro</button>}<button className="secondary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "left"); }}><X size={17}/> Rechazar</button><button className="primary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "right"); }}><Heart size={17} fill="currentColor"/> {isWorker ? "Aplicar" : "Me interesa"}</button></footer>
+      <footer className={`deck-details-actions ${role==="company"&&worker&&!worker.is_demo&&isPro?"has-pro-actions":""}`}>
+        {role==="company"&&worker&&!worker.is_demo&&isPro&&<button className="secondary-button pro-contact-button" onClick={()=>{setDetailsOpen(false);onContactDirect(card);}}><MessageCircle size={16}/> Escribir con Pro</button>}
+        <div className="deck-details-choice-actions">
+          <button className="secondary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "left"); }}><X size={17}/> Rechazar</button>
+          <button className="primary-button" onClick={() => { setDetailsOpen(false); onSwipe(card, "right"); }}><Heart size={17} fill="currentColor"/> {isWorker ? "Aplicar" : "Me interesa"}</button>
+        </div>
+      </footer>
     </motion.section></motion.div>}</AnimatePresence>, document.body)}
   </>;
 }
