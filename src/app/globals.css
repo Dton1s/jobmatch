@@ -111,6 +111,33 @@ body{font-family:Inter,"Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSys
 .managed-offer-choose:disabled{cursor:default}
 @media(max-width:700px){.location-fields{grid-template-columns:minmax(0,1fr);gap:10px}.location-card-top{align-items:flex-start}.location-card .location-button{align-self:flex-start}.location-summary strong{font-size:22px}.managed-offer-top{gap:7px}.managed-offer-choose{min-height:42px;font-size:12px}}
 
+/* Lightweight QR landing route at /app. */
+.app-landing{display:grid;min-height:100svh;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0%,#e9f8ec 0%,#f7f8f2 52%,#f3f5ef 100%);color:#14231c}
+.app-landing-card{width:min(100%,480px);padding:clamp(26px,6vw,48px);border:1px solid #e3e9df;border-radius:30px;background:#fffffff2;box-shadow:0 24px 80px #10291a12;text-align:center}
+.app-landing-logo{display:block;width:min(220px,62%);height:auto;margin:0 auto 34px;object-fit:contain}
+.app-landing-kicker{display:block;color:#668342;font-size:11px;font-weight:800;letter-spacing:.16em}
+.app-landing-card h1{margin:12px 0 10px;color:#14231c;font-size:clamp(27px,7vw,38px);font-weight:750;letter-spacing:-.045em;line-height:1.08}
+.app-landing-card>p{margin:0 auto 24px;color:#747d72;font-size:15px;line-height:1.6}
+.app-landing-primary,.app-landing-secondary{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:54px;padding:14px 18px;border:1px solid #183327;border-radius:15px;background:#14231c;color:#fff;font-size:15px;font-weight:750;text-decoration:none;transition:transform .15s ease,background .15s ease}
+.app-landing-primary:hover{transform:translateY(-1px);background:#244535}
+.app-landing-secondary{margin-top:10px;border-color:#dfe6de;background:#fff;color:#284634;cursor:pointer}
+.app-landing-secondary:hover{background:#f2f8f1}
+.app-landing-card>small{display:block;margin-top:14px;color:#8a9088;font-size:12px;line-height:1.5}
+.app-install-guide{display:grid;grid-template-columns:38px minmax(0,1fr) 18px;align-items:start;gap:12px;margin-top:18px;padding:16px;border:1px solid #dcecdf;border-radius:18px;background:#f1faf2;text-align:left}
+.app-install-guide-icon{display:grid;width:36px;height:36px;place-items:center;border-radius:12px;background:#ddf3e2;color:#286347}
+.app-install-guide b{color:#234433;font-size:13px}
+.app-install-guide p{margin:5px 0 0;color:#66756b;font-size:12px;line-height:1.55}
+.app-inline-icon{display:inline;vertical-align:-2px}
+.app-install-check{margin-top:3px;color:#4c9965}
+.app-landing-footnote{margin-top:20px!important}
+.app-landing-android{padding-top:clamp(34px,8vw,58px);padding-bottom:clamp(34px,8vw,58px)}
+.app-landing-android .app-landing-logo{width:min(190px,58%);margin-bottom:28px}
+.app-landing-checking{display:flex;flex-direction:column;gap:24px}
+.app-landing-checking img{width:min(210px,60vw);height:auto}
+.app-landing-spinner{width:27px;height:27px;border:3px solid #d8eadb;border-top-color:#76a938;border-radius:50%;animation:appLandingSpin .75s linear infinite}
+@keyframes appLandingSpin{to{transform:rotate(360deg)}}
+@media(max-width:480px){.app-landing{padding:15px}.app-landing-card{border-radius:24px}.app-landing-logo{margin-bottom:28px}}
+
 /* Reserve the deck's geometry so focus restoration and media paint cannot shift the page. */
 .deck-stack{height:min(59svh,610px);min-height:410px;max-height:560px}
 .card-cover{flex:0 0 39%;min-height:166px}
