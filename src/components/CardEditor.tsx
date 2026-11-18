@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, LoaderCircle, MapPin, Mic, Pause, Play, Plus, Save, Square } from "lucide-react";
+import { BriefcaseBusiness, Camera, Check, ChevronDown, Clock3, ImagePlus, LoaderCircle, Mic, Pause, Play, Plus, Save, Square } from "lucide-react";
 import { CloseButton } from "@/components/CloseButton";
 import { supabase, type JobOffer, type Profile, type WorkerCard } from "@/lib/supabase";
 import { CvUploadField } from "@/components/CvUploadField";
 import { OfferBoostButton } from "@/components/CompanyBillingPanel";
+import { LocationPicker, TagInput } from "@/components/LocationPicker";
 
 const sectors = ["Hostelería", "Comercio", "Logística", "Limpieza", "Atención al cliente", "Administración", "Construcción", "Sanidad", "Tecnología", "Otro"];
-const townCenters: Record<string, [number, number]> = {
-  Torrevieja: [37.9786, -0.6822], Alicante: [38.3452, -0.481], Guardamar: [38.0901, -0.6551],
-  "Orihuela Costa": [37.9292, -0.7354], "La Mata": [38.0267, -0.6541],
-};
 function cityName(value?: string | null) { return value?.split("·")[0]?.trim() ?? ""; }
 function postalCode(value?: string | null) { return value?.match(/\b\d{5}\b/)?.[0] ?? ""; }
+function parseStringArray(value: FormDataEntryValue | null) { try { const parsed = JSON.parse(String(value ?? "[]")); return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string").slice(0, 12) : []; } catch { return []; } }
 function parseEuroAmount(value: string) { return Number(value.trim().replace(/\s/g, "").replace(/\./g, "").replace(",", ".")); }
 
 async function upload(file: File, userId: string, type: "photo" | "audio") {
@@ -46,7 +44,10 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
     isWorker ? existingWorker?.lat ?? profile.lat : existingOffer?.lat ?? profile.lat,
     isWorker ? existingWorker?.lng ?? profile.lng : existingOffer?.lng ?? profile.lng,
   ]);
-  const [locationDetected, setLocationDetected] = useState(false);
+  const [province, setProvince] = useState("");
+  const [postal, setPostal] = useState(postalCode(isWorker ? existingWorker?.city : existingOffer?.city));
+  const [languages, setLanguages] = useState<string[]>(existingWorker?.languages ?? profile.languages ?? []);
+  const [skills, setSkills] = useState<string[]>(existingWorker?.skills ?? [...(profile.has_driving_license ? ["Carnet B"] : []), ...(profile.has_own_vehicle ? ["Vehículo propio"] : [])]);
   const [creatingOffer, setCreatingOffer] = useState(!existingOffer);
   const [focusedOfferId, setFocusedOfferId] = useState(existingOffer?.id ?? "");
   const [cvUrl, setCvUrl] = useState<string | null>(existingWorker?.cv_url ?? profile.cv_url ?? null);
@@ -82,19 +83,8 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
     setPhoto(file); setPhotoPreview(URL.createObjectURL(file)); setError("");
   }
 
-  function locate() {
-    setError("");
-    if (!navigator.geolocation) { setError("Este dispositivo no ofrece ubicación. Elige tu ciudad y código postal."); return; }
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      setCoordinates([Number(coords.latitude.toFixed(3)), Number(coords.longitude.toFixed(3))]);
-      setLocationDetected(true);
-    }, () => setError("No pudimos detectar tu ubicación. Elige ciudad y código postal manualmente."), { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
-  }
-
-  function chooseTown(value: string) {
-    setCity(value);
-    const center = townCenters[value];
-    if (center) { setCoordinates(center); setLocationDetected(false); }
+  function updateLocation(value: { city: string; province: string; postal: string; lat: number | null; lng: number | null }) {
+    setCity(value.city); setProvince(value.province); setPostal(value.postal); setCoordinates([value.lat, value.lng]);
   }
 
   async function startRecording() {
@@ -151,7 +141,6 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
     try {
       if (!supabase) throw new Error("Configura las variables de Supabase primero.");
       const [lat, lng] = coordinates;
-      const postal = String(data.get("postal") ?? "").trim();
       if (!city || lat === null || lng === null) throw new Error("Detecta tu ubicación o selecciona ciudad para guardar la tarjeta.");
       const publicImage = photo ? await upload(photo, profile.id, "photo") : currentPhoto ?? null;
       if (isWorker) {
@@ -160,11 +149,12 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
           if (recorded.size > 2_000_000) throw new Error("El audio supera el máximo de 2 MB.");
           introAudio = await upload(new File([recorded], "presentacion.webm", { type: recorded.type || "audio/webm" }), profile.id, "audio");
         }
-        const skills = String(data.get("skills") ?? "").split(",").map((item) => item.trim()).filter(Boolean).slice(0, 12);
-        const row = { user_id: profile.id, full_name: String(data.get("full_name")), age: Number(data.get("age")) || null, photo_path: publicImage, desired_position: String(data.get("position")), sector: String(data.get("sector")), experience_years: Number(data.get("experience")), availability: String(data.get("availability")), availability_note: String(data.get("availability_note")), skills, bio: String(data.get("bio")), city: postal ? `${city} · ${postal}` : city, lat, lng, intro_audio_path: introAudio, cv_url: cvUrl, cv_filename: cvFilename, is_active: true };
+        const skills = parseStringArray(data.get("skills"));
+        const selectedLanguages = parseStringArray(data.get("languages"));
+        const row = { user_id: profile.id, full_name: String(data.get("full_name")), age: Number(data.get("age")) || null, photo_path: publicImage, desired_position: String(data.get("position")), sector: String(data.get("sector")), experience_years: Number(data.get("experience")), availability: String(data.get("availability")), availability_note: String(data.get("availability_note")), skills, languages: selectedLanguages, education_level: String(data.get("education_level") ?? ""), bio: String(data.get("bio")), city: postal ? `${city} · ${postal}` : city, lat, lng, intro_audio_path: introAudio, cv_url: cvUrl, cv_filename: cvFilename, is_active: true };
         const { error: saveError } = await supabase.from("jobmatch_worker_cards").upsert(row, { onConflict: "user_id" });
         if (saveError) throw saveError;
-        const { error: profileError } = await supabase.from("jobmatch_profiles").update({ display_name: row.full_name, city, lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)), avatar_path: publicImage, avatar_url: publicImage, cv_url: cvUrl, cv_filename: cvFilename, onboarding_complete: true }).eq("id", profile.id);
+        const { error: profileError } = await supabase.from("jobmatch_profiles").update({ display_name: row.full_name, city, lat, lng, avatar_path: publicImage, avatar_url: publicImage, cv_url: cvUrl, cv_filename: cvFilename, onboarding_complete: true }).eq("id", profile.id);
         if (profileError) throw profileError;
       } else {
         const amount = parseEuroAmount(String(data.get("salary_amount") ?? ""));
@@ -180,7 +170,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
           ? await supabase.from("jobmatch_job_offers").update(row).eq("id", existingOffer.id).eq("company_id", profile.id)
           : await supabase.from("jobmatch_job_offers").insert(row);
         if (result.error) throw result.error;
-        const { error: profileError } = await supabase.from("jobmatch_profiles").update({ display_name: row.business_name, city, lat: Number(lat.toFixed(2)), lng: Number(lng.toFixed(2)), avatar_path: publicImage, company_logo_url: publicImage, onboarding_complete: true }).eq("id", profile.id);
+        const { error: profileError } = await supabase.from("jobmatch_profiles").update({ display_name: row.business_name, city, lat, lng, avatar_path: publicImage, company_logo_url: publicImage, onboarding_complete: true }).eq("id", profile.id);
         if (profileError) throw profileError;
       }
       onSaved();
@@ -211,7 +201,9 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
         <label>Puesto que buscas<input name="position" defaultValue={existingWorker?.desired_position} required maxLength={100} placeholder="Camarero/a, dependiente/a…"/></label>
         <div className="form-two"><label>Sector<select name="sector" defaultValue={existingWorker?.sector ?? "Hostelería"}>{sectors.map((sector) => <option key={sector}>{sector}</option>)}</select></label><label>Experiencia<input name="experience" type="number" min="0" max="60" step="0.5" defaultValue={existingWorker?.experience_years ?? profile.experience_years ?? 0}/></label></div>
         <div className="form-two"><label>Disponibilidad<select name="availability" defaultValue={existingWorker?.availability ?? "inmediata"}><option value="inmediata">Inmediata</option><option value="fines_de_semana">Fines de semana</option><option value="media_jornada">Media jornada</option><option value="completa">Jornada completa</option></select></label><label>Cuándo puedes empezar<input name="availability_note" defaultValue={existingWorker?.availability_note ?? ""} placeholder="Esta semana, en 15 días…"/></label></div>
-        <label>Habilidades <small>Separadas por coma</small><input name="skills" defaultValue={existingWorker?.skills?.join(", ") ?? [...(profile.languages ?? []), ...(profile.has_driving_license ? ["Carnet B"] : []), ...(profile.has_own_vehicle ? ["Vehículo propio"] : [])].join(", ")} placeholder="Carnet B, TPV, Inglés"/></label>
+        <label>Nivel de estudios<select name="education_level" defaultValue={existingWorker?.education_level ?? ""}><option value="">Selecciona una opción</option>{["Sin estudios", "ESO", "Bachillerato", "FP Grado Medio", "FP Grado Superior", "Grado Universitario", "Máster"].map((item) => <option key={item}>{item}</option>)}</select></label>
+        <TagInput label="Idiomas" name="languages" value={languages} onChange={setLanguages} placeholder="Añade un idioma y nivel (p. ej. Inglés B2)" suggestions={["Español", "Inglés", "Francés", "Alemán", "Ruso", "Árabe"]}/>
+        <TagInput label="Habilidades" name="skills" value={skills} onChange={setSkills} placeholder="Añade una habilidad" suggestions={["Carnet B", "Vehículo propio", "Manipulador de alimentos", "Atención al cliente", "Caja/TPV", "Almacén", "Limpieza", "Office/Excel"]}/>
         <label>Una breve presentación<textarea name="bio" rows={3} maxLength={280} defaultValue={existingWorker?.bio ?? profile.default_bio ?? ""} placeholder="Cuéntanos qué aportas al equipo…"/></label>
         <CvUploadField userId={profile.id} value={cvUrl} filename={cvFilename} onChange={(url,filename)=>{setCvUrl(url);setCvFilename(filename);}}/>
         <section className="recorder"><div className="recorder-copy"><span className="eyebrow">PRESENTACIÓN DE VOZ · 15 SEGUNDOS</span><p>Tu voz transmite mucho más que un CV.</p></div><div className={`audio-wave ${recording ? "recording" : ""}`} aria-hidden="true">{Array.from({length:20},(_,index)=><i key={index} style={{"--bar":`${Math.max(5,(12 + (index*17)%30)*Math.max(.15,audioLevel))}px`} as CSSProperties}/>)}</div><div className="recorder-controls">{recording ? <button type="button" className="record-button stop" onClick={stopRecording}><Square size={15} fill="currentColor"/> Parar · {15-seconds}s</button> : <button type="button" className="record-button" onClick={() => void startRecording()}><Mic size={16}/> {recorded ? "Regrabar" : "Grabar presentación"}</button>}{recordUrl ? <><audio ref={audioRef} src={recordUrl} onEnded={()=>setPlaying(false)} className="hidden-audio"/><button type="button" className="round-control" onClick={() => { if (!audioRef.current) return; if (playing) audioRef.current.pause(); else void audioRef.current.play(); setPlaying(!playing); }} aria-label={playing ? "Pausar audio" : "Escuchar audio"}>{playing ? <Pause size={16}/> : <Play size={16}/>}</button><button type="button" className="text-action" onClick={resetRecording}>Eliminar</button></> : oldIntro && <a className="text-action" href={oldIntro} target="_blank" rel="noreferrer">Escuchar audio actual</a>}</div></section>
@@ -224,7 +216,7 @@ export function CardEditor({ profile, existingWorker, existingOffer, offers, onS
         <label>Descripción del puesto<textarea name="description" defaultValue={existingOffer?.description ?? profile.company_description} required maxLength={1200} rows={4} placeholder="Tareas, equipo y requisitos principales…"/></label>
         <label>Dirección aproximada<input name="address_approx" defaultValue={existingOffer?.address_approx ?? profile.company_address ?? ""} placeholder="Centro, zona puerto…"/></label>
       </>}
-      <section className="location-card"><div className="location-card-top"><div><span className="eyebrow">UBICACIÓN Y DISTANCIA</span><p>{locationDetected ? `📍 Ubicación detectada: ${city || "zona cercana"} (radio activo)` : coordinates[0] !== null ? `📍 Ubicación guardada · ${city || "tu zona"}` : "La distancia aproxima las oportunidades cercanas."}</p></div><button type="button" className="location-button" onClick={locate}><MapPin size={15}/> Detectar mi ubicación actual</button></div><div className="form-two"><label>Ciudad<select value={city || ""} onChange={(event)=>chooseTown(event.target.value)} required><option value="">Ciudad</option>{Object.keys(townCenters).map((town)=><option key={town}>{town}</option>)}</select></label><label>Código postal<input name="postal" inputMode="numeric" maxLength={5} defaultValue={postalCode(isWorker ? existingWorker?.city : existingOffer?.city)} placeholder="03181"/></label></div></section>
+      <LocationPicker value={{ city, province, postal, lat: coordinates[0], lng: coordinates[1] }} onChange={updateLocation} onError={setError}/>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="primary-button save-button" disabled={busy || recording} type="submit">{busy ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{busy ? "Guardando…" : isWorker ? "Guardar mi perfil" : existingOffer ? "Guardar oferta" : "Publicar oferta"}</button>
       {!isWorker && <p className="form-footnote"><Clock3 size={14}/> Las ofertas caducan automáticamente a los 14 días.</p>}

@@ -5,10 +5,11 @@ import { Camera, Check, LoaderCircle, Mic, Pause, Play, Save, Square, Trash2 } f
 import { CvUploadField } from "@/components/CvUploadField";
 import { CloseButton } from "@/components/CloseButton";
 import { supabase, type Profile, type Role } from "@/lib/supabase";
+import { LocationPicker, TagInput, type LocationValue } from "@/components/LocationPicker";
 
 type WorkerForm = {
-  fullName: string; birthYear: string; city: string; experienceYears: string; hasDrivingLicense: boolean;
-  hasOwnVehicle: boolean; languages: string; defaultBio: string; defaultAudioUrl: string; cvUrl: string | null; cvFilename: string | null;
+  fullName: string; birthYear: string; experienceYears: string; hasDrivingLicense: boolean;
+  hasOwnVehicle: boolean; defaultBio: string; defaultAudioUrl: string; cvUrl: string | null; cvFilename: string | null;
 };
 type CompanyForm = {
   name: string; sector: string; phone: string; showPhoneOnMatch: boolean; address: string; description: string;
@@ -32,10 +33,12 @@ function messageFromError(error: unknown) {
 export function ProfileBaseEditor({ profile, enabledRoles, onSaved, onClose }: { profile: Profile; enabledRoles: Role[]; onSaved: (updated: Partial<Profile>) => void; onClose: () => void }) {
   const [tab, setTab] = useState<"worker" | "company">(profile.role === "company" ? "company" : "worker");
   const [workerForm, setWorkerForm] = useState<WorkerForm>({
-    fullName: profile.full_name ?? "", birthYear: profile.birth_year?.toString() ?? "", city: profile.city ?? "",
+    fullName: profile.full_name ?? "", birthYear: profile.birth_year?.toString() ?? "",
     experienceYears: String(profile.experience_years ?? 0), hasDrivingLicense: Boolean(profile.has_driving_license),
-    hasOwnVehicle: Boolean(profile.has_own_vehicle), languages: profile.languages?.join(", ") ?? "", defaultBio: profile.default_bio ?? "", defaultAudioUrl: profile.default_audio_url ?? "", cvUrl: profile.cv_url ?? null, cvFilename: profile.cv_filename ?? null,
+    hasOwnVehicle: Boolean(profile.has_own_vehicle), defaultBio: profile.default_bio ?? "", defaultAudioUrl: profile.default_audio_url ?? "", cvUrl: profile.cv_url ?? null, cvFilename: profile.cv_filename ?? null,
   });
+  const [workerLanguages, setWorkerLanguages] = useState<string[]>(profile.languages ?? []);
+  const [workerLocation, setWorkerLocation] = useState<LocationValue>({ city: profile.city?.split("·")[0]?.trim() ?? "", province: "", postal: profile.city?.match(/\b\d{5}\b/)?.[0] ?? "", lat: profile.lat, lng: profile.lng });
   const [companyForm, setCompanyForm] = useState<CompanyForm>({
     name: profile.company_name ?? "", sector: profile.company_sector ?? "", phone: profile.company_phone ?? "",
     showPhoneOnMatch: Boolean(profile.show_phone_on_match), address: profile.company_address ?? "", description: profile.company_description ?? "",
@@ -108,9 +111,9 @@ export function ProfileBaseEditor({ profile, enabledRoles, onSaved, onClose }: {
         const avatarUrl = workerPhoto ? await uploadMedia(workerPhoto, profile.id, "avatar") : profile.avatar_url || null;
         values = {
           avatar_url: avatarUrl, full_name: workerForm.fullName.trim(), birth_year: Number(workerForm.birthYear) || null,
-          city: workerForm.city.trim(), experience_years: Number(workerForm.experienceYears) || 0,
+          city: workerLocation.postal ? `${workerLocation.city} · ${workerLocation.postal}` : workerLocation.city, lat: workerLocation.lat, lng: workerLocation.lng, experience_years: Number(workerForm.experienceYears) || 0,
           has_driving_license: workerForm.hasDrivingLicense, has_own_vehicle: workerForm.hasOwnVehicle,
-          languages: workerForm.languages.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 12),
+          languages: workerLanguages,
           default_bio: workerForm.defaultBio.trim(), default_audio_url: workerForm.defaultAudioUrl || null,
           cv_url: workerForm.cvUrl, cv_filename: workerForm.cvFilename,
           display_name: workerForm.fullName.trim(),
@@ -148,8 +151,9 @@ export function ProfileBaseEditor({ profile, enabledRoles, onSaved, onClose }: {
         <div className="identity-row"><button type="button" className="avatar-picker" onClick={() => fileRef.current?.click()} aria-label={isWorker ? "Elegir avatar de trabajador" : "Elegir logo de empresa"}><span className="avatar-preview" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{photo ? null : isWorker ? "JM" : "＋"}</span><span className="camera-badge"><Camera size={15}/></span></button><input ref={fileRef} className="hidden-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseImage}/><div><b>{isWorker ? "Avatar predeterminado" : "Logo predeterminado"}</b><small>Se usará al crear una ficha u oferta nueva.</small></div></div>
         {isWorker ? <>
           <div className="form-two"><label>Nombre y apellidos<input name="full_name" value={workerForm.fullName} onChange={(event)=>setWorker("fullName",event.target.value)} maxLength={100}/></label><label>Año de nacimiento<input name="birth_year" type="number" min="1900" max={new Date().getFullYear()} value={workerForm.birthYear} onChange={(event)=>setWorker("birthYear",event.target.value)} placeholder="Opcional"/></label></div>
-          <div className="form-two"><label>Ciudad habitual<input name="city" value={workerForm.city} onChange={(event)=>setWorker("city",event.target.value)} placeholder="Torrevieja"/></label><label>Años de experiencia<input name="experience_years" type="number" min="0" max="60" step="0.5" value={workerForm.experienceYears} onChange={(event)=>setWorker("experienceYears",event.target.value)}/></label></div>
-          <label>Idiomas <small>Separados por coma</small><input name="languages" value={workerForm.languages} onChange={(event)=>setWorker("languages",event.target.value)} placeholder="Español, Inglés B2"/></label>
+          <div className="form-two"><label>Años de experiencia<input name="experience_years" type="number" min="0" max="60" step="0.5" value={workerForm.experienceYears} onChange={(event)=>setWorker("experienceYears",event.target.value)}/></label></div>
+          <LocationPicker value={workerLocation} onChange={setWorkerLocation} onError={setError}/>
+          <TagInput label="Idiomas" name="languages" value={workerLanguages} onChange={setWorkerLanguages} placeholder="Añade idioma y nivel (p. ej. Inglés B2)" suggestions={["Español", "Inglés", "Francés", "Alemán", "Ruso", "Árabe"]}/>
           <div className="profile-switches"><label className="profile-phone-toggle"><span>Tengo carnet de conducir</span><input type="checkbox" checked={workerForm.hasDrivingLicense} onChange={(event)=>setWorker("hasDrivingLicense",event.target.checked)} aria-label="Tengo carnet de conducir"/></label><label className="profile-phone-toggle"><span>Dispongo de vehículo propio</span><input type="checkbox" checked={workerForm.hasOwnVehicle} onChange={(event)=>setWorker("hasOwnVehicle",event.target.checked)} aria-label="Dispongo de vehículo propio"/></label></div>
           <label>Presentación por defecto<textarea name="default_bio" rows={4} maxLength={1200} value={workerForm.defaultBio} onChange={(event)=>setWorker("defaultBio",event.target.value)} placeholder="Experiencia, fortalezas y lo que buscas…"/></label>
           <CvUploadField userId={profile.id} value={workerForm.cvUrl} filename={workerForm.cvFilename} onChange={(url,filename)=>{setWorker("cvUrl",url);setWorker("cvFilename",filename);}}/>

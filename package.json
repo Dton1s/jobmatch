@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",
+    "locations:export": "node scripts/export-spain-municipalities.mjs",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android"
   },
@@ -15,6 +16,7 @@
     "@capacitor/app": "^7.1.0",
     "@capacitor/browser": "^7.0.2",
     "@capacitor/core": "^7.4.3",
+    "@capacitor/geolocation": "^7.1.8",
     "@capawesome/capacitor-app-update": "^7.2.0",
     "@capgo/native-purchases": "^7.19.3",
     "@supabase/supabase-js": "^2.119.0",
@@ -32,6 +34,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "spanish-cities-info": "^2.4.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

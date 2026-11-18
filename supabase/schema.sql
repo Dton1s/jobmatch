@@ -63,6 +63,8 @@ create table public.jobmatch_worker_cards (
   availability public.jobmatch_availability not null,
   availability_note text not null default '',
   skills text[] not null default '{}',
+  languages text[] not null default '{}',
+  education_level text not null default '',
   bio text not null default '',
   city text not null,
   lat double precision not null check (lat between -90 and 90),
