@@ -30,7 +30,7 @@ export function SwipeDeck({ role, offer, distance, cards, loading, undoAvailable
   };
 
   return <section className="deck-area">
-    <div className="deck-heading compact-deck-heading"><div className="deck-context">{role === "worker" ? <><b>Ofertas cerca de ti</b><span>· {distance} km</span></> : <><span>Buscando:</span><b>{offer?.position ?? "Elige una oferta"}</b>{offer?.salary_text && <small>{offer.salary_text}</small>}<button onClick={onCreateOffer}>Cambiar</button></>}</div><button className="deck-radius" onClick={onShowFilters} aria-label={`Cambiar radio de búsqueda, actualmente ${distance} kilómetros`}><MapPin size={14}/>{distance} km</button></div>
+    <div className="deck-heading compact-deck-heading"><div className="deck-context">{role === "worker" ? <><b>Ofertas cerca de ti</b><span>· {distance} km</span></> : <><span>Buscando:</span><b>{offer?.position ?? "Elige una oferta"}</b>{offer?.salary_text && <small>{offer.salary_text}</small>}<button onClick={onCreateOffer}>Mis ofertas</button></>}</div><button className="deck-radius" onClick={onShowFilters} aria-label={`Cambiar radio de búsqueda, actualmente ${distance} kilómetros`}><MapPin size={14}/>{distance} km</button></div>
     {cards.some((card) => card.is_demo) && <p className="sample-feed-notice" role="status">Modo de pruebas: el mazo incluye perfiles y ofertas ficticios; no representan personas ni vacantes reales y no crean conexiones.</p>}
     <div className="deck-stack">
       {loading && <div className="deck-state"><div className="loader"/><p>Buscando buenas coincidencias cerca…</p></div>}

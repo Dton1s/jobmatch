@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { LoaderCircle, MapPin, Plus } from "lucide-react";
 import { isNativePlatform } from "@/lib/platform";
 import { findMunicipality, loadSpanishMunicipalities, nearestMunicipality, type Municipality } from "@/lib/spain-locations";
@@ -12,20 +12,35 @@ let lastReverseLookupAt = 0;
 export function LocationPicker({ value, onChange, onError }: { value: LocationValue; onChange: (value: LocationValue) => void; onError?: (message: string) => void }) {
   const [locations, setLocations] = useState<Municipality[]>([]);
   const [query, setQuery] = useState(value.city);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const cityControlRef = useRef<HTMLDivElement>(null);
+  const suggestionsId = useId();
   useEffect(() => { let alive = true; void loadSpanishMunicipalities().then((items) => { if (!alive) return; setLocations(items); if (!value.province && value.city) { const match = findMunicipality(items, value.city); if (match) onChange({ ...value, city: match.name, province: match.province, lat: value.lat ?? match.lat, lng: value.lng ?? match.lng }); } }).catch(() => { if (alive) setLoadError("No se pudo cargar el listado. Puedes escribir la población manualmente."); }); return () => { alive = false; }; // The initial value is used once after the catalogue loads.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { setQuery(value.city); }, [value.city]);
+  useEffect(() => {
+    function closeSuggestions(event: PointerEvent) {
+      if (!cityControlRef.current?.contains(event.target as Node)) setSuggestionsOpen(false);
+    }
+    document.addEventListener("pointerdown", closeSuggestions);
+    return () => document.removeEventListener("pointerdown", closeSuggestions);
+  }, []);
   const provinces = useMemo(() => [...new Set(locations.map((item) => item.province))].sort((a, b) => a.localeCompare(b, "es")), [locations]);
   const cities = useMemo(() => locations.filter((item) => item.province === value.province).sort((a, b) => a.name.localeCompare(b.name, "es")), [locations, value.province]);
-  const suggestions = useMemo(() => query.trim().length < 2 ? [] : cities.filter((item) => item.name.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))).slice(0, 12), [cities, query]);
+  const suggestions = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("es");
+    if (normalized.length < 2 || normalized === value.city.trim().toLocaleLowerCase("es")) return [];
+    return cities.filter((item) => item.name.toLocaleLowerCase("es").includes(normalized)).slice(0, 12);
+  }, [cities, query, value.city]);
 
   function selectProvince(province: string) { onChange({ ...empty, province, postal: value.postal }); setQuery(""); }
-  function selectCity(city: Municipality) { onChange({ ...value, city: city.name, province: city.province, lat: city.lat, lng: city.lng }); setQuery(city.name); }
+  function selectCity(city: Municipality) { onChange({ ...value, city: city.name, province: city.province, lat: city.lat, lng: city.lng }); setQuery(city.name); setSuggestionsOpen(false); }
   function typeCity(text: string) {
     setQuery(text);
+    setSuggestionsOpen(true);
     const found = findMunicipality(locations, text, value.province);
     onChange({ ...value, city: text, ...(found ? { province: found.province, lat: found.lat, lng: found.lng } : { lat: null, lng: null }) });
   }
@@ -65,11 +80,10 @@ export function LocationPicker({ value, onChange, onError }: { value: LocationVa
     } finally { setLocating(false); }
   }
 
-  return <section className="location-card"><div className="location-card-top"><div><span className="eyebrow">UBICACIÓN Y DISTANCIA</span><p>{value.lat !== null && value.lng !== null ? `Ubicación guardada · ${value.city || "tu zona"}` : "Elige dónde vives o dónde está el negocio."}</p></div><button type="button" className="location-button" onClick={() => void locate()} disabled={locating || locations.length === 0}>{locating ? <LoaderCircle className="spin" size={15}/> : <MapPin size={15}/>} {locating ? "Detectando…" : "Detectar mi ubicación"}</button></div>
+  return <section className="location-card"><div className="location-card-top"><div className="location-summary"><span className="eyebrow">UBICACIÓN Y DISTANCIA</span><strong>{value.city || "Elige una población"}</strong><p>{[value.province, value.postal].filter(Boolean).join(" · ") || "Tu ubicación aparecerá aquí"}</p></div><button type="button" className="location-button" onClick={() => void locate()} disabled={locating || locations.length === 0}>{locating ? <LoaderCircle className="spin" size={15}/> : <MapPin size={15}/>} {locating ? "Detectando…" : "Detectar mi ubicación"}</button></div>
     {loadError && <small className="form-error">{loadError}</small>}
-    <div className="form-two location-fields"><label>Provincia<select value={value.province} onChange={(event) => selectProvince(event.target.value)} required><option value="">Selecciona provincia</option>{provinces.map((province) => <option key={province}>{province}</option>)}</select></label><label>Población / Ciudad<input value={query} onChange={(event) => typeCity(event.target.value)} autoComplete="address-level2" required placeholder={value.province ? "Busca tu población" : "Selecciona primero provincia"} disabled={!value.province}/></label></div>
-    {suggestions.length > 0 && <div className="location-suggestions" role="listbox" aria-label="Poblaciones"><div>{suggestions.map((item) => <button type="button" role="option" aria-selected={item.name === value.city} key={item.ineCode} onClick={() => selectCity(item)}>{item.name}</button>)}</div></div>}
-    <label className="postal-field">Código postal<input name="postal" inputMode="numeric" maxLength={5} pattern="\d{5}" value={value.postal} onChange={(event) => onChange({ ...value, postal: event.target.value.replace(/\D/g, "").slice(0, 5) })} placeholder="03181"/></label>
+    <div className="form-two location-fields"><label>Provincia<select className="location-control-input" value={value.province} onChange={(event) => selectProvince(event.target.value)} required><option value="">Selecciona provincia</option>{provinces.map((province) => <option key={province}>{province}</option>)}</select></label><label>Población / Ciudad<div className="location-city-control" ref={cityControlRef}><input className="location-control-input" value={query} onFocus={() => setSuggestionsOpen(true)} onChange={(event) => typeCity(event.target.value)} autoComplete="address-level2" aria-expanded={suggestionsOpen && suggestions.length > 0} aria-controls={suggestionsId} required placeholder={value.province ? "Busca tu población" : "Selecciona primero provincia"} disabled={!value.province}/>{suggestionsOpen && suggestions.length > 0 && <div id={suggestionsId} className="location-suggestions" role="listbox" aria-label="Poblaciones">{suggestions.map((item) => <button type="button" role="option" aria-selected={item.name === value.city} key={item.ineCode} onClick={() => selectCity(item)}>{item.name}</button>)}</div>}</div></label></div>
+    <label className="postal-field">Código postal<input className="location-control-input" name="postal" inputMode="numeric" maxLength={5} pattern="\d{5}" value={value.postal} onChange={(event) => onChange({ ...value, postal: event.target.value.replace(/\D/g, "").slice(0, 5) })} placeholder="03181"/></label>
     <small className="location-attribution">Geocodificación inversa © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></small>
   </section>;
 }
