@@ -1,26 +1,36 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isAdminIdAllowed, parseAdminIds } from "./admin-policy.mjs";
 
-export type AdminContext = { userId: string; db: SupabaseClient };
-export type AdminAuthResult = { context: AdminContext } | { response: Response };
+export type AdminContext = { userId: string; email: string | null; db: SupabaseClient };
+export type AdminAuthResult = { context: AdminContext } | { response: Response } | { totpRequired: { userId: string; email: string | null } };
+type AdminReadyResult = { context: AdminContext } | { response: Response };
+type AdminSessionResult = AdminReadyResult | { totpRequired: { userId: string; email: string | null } };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
-export async function requireAdmin(request: Request): Promise<AdminAuthResult> {
+export function requireAdmin(request: Request, options: { allowAal1Session: true }): Promise<AdminSessionResult>;
+export function requireAdmin(request: Request, options?: { allowAal1Session?: false }): Promise<AdminReadyResult>;
+export async function requireAdmin(request: Request, options: { allowAal1Session?: boolean } = {}): Promise<AdminAuthResult> {
   const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   const allowedIds = parseAdminIds(process.env.JOBMATCH_ADMIN_USER_IDS);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!bearer || !url || !anon || !service || allowedIds.length === 0) return { response: json({ error: "Acceso no autorizado." }, 401) };
+  if (!bearer || !url || !anon) return { response: json({ error: "Sesión no válida." }, 401) };
+  if (allowedIds.length === 0) return { response: json({ error: "Cuenta no autorizada." }, 403) };
   try {
     const auth = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await auth.auth.getUser(bearer);
     const userId = data.user?.id.toLowerCase();
-    if (error || !userId || !isAdminIdAllowed(userId, allowedIds)) return { response: json({ error: "Acceso no autorizado." }, 403) };
+    if (error || !userId) return { response: json({ error: "Sesión no válida." }, 401) };
+    if (!isAdminIdAllowed(userId, allowedIds)) return { response: json({ error: "Cuenta no autorizada." }, 403) };
     const tokenPayload = JSON.parse(Buffer.from(bearer.split(".")[1] ?? "", "base64url").toString("utf8")) as { aal?: string };
-    if (tokenPayload.aal !== "aal2") return { response: json({ error: "La cuenta administrativa requiere verificación MFA." }, 403) };
+    if (tokenPayload.aal !== "aal2") {
+      if (options.allowAal1Session) return { totpRequired: { userId, email: data.user.email ?? null } };
+      return { response: json({ error: "Verifica TOTP para continuar." }, 403) };
+    }
+    if (!service) return { response: json({ error: "Panel administrativo sin configurar." }, 503) };
     const db = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
-    return { context: { userId, db } };
+    return { context: { userId, email: data.user.email ?? null, db } };
   } catch {
     return { response: json({ error: "No se pudo validar el acceso." }, 401) };
   }

@@ -11,8 +11,11 @@ assert.equal(isAdminIdAllowed("11111111-1111-4111-8111-111111111111", []), false
 
 const guard = await readFile(new URL("../src/lib/server/admin-auth.ts", import.meta.url), "utf8");
 assert.match(guard, /auth\.auth\.getUser\(bearer\)/, "server verifies the Supabase JWT");
-assert.match(guard, /if \(!bearer \|\| !url \|\| !anon \|\| !service \|\| allowedIds\.length === 0\)/, "missing token/configuration denies before creating admin access");
+assert.match(guard, /if \(!bearer \|\| !url \|\| !anon\)/, "missing token/configuration denies before creating admin access");
+assert.match(guard, /allowedIds\.length === 0\) return \{ response: json\(\{ error: "Cuenta no autorizada\." \}, 403\)/, "missing admin allowlist denies with forbidden status");
 assert.match(guard, /isAdminIdAllowed\(userId, allowedIds\)/, "server enforces the UUID allowlist");
+assert.match(guard, /allowAal1Session\) return \{ totpRequired: \{ userId, email: data\.user\.email \?\? null \} \}/, "authorized AAL1 session can begin TOTP setup");
+assert.match(guard, /Verifica TOTP para continuar/, "all protected routes still require AAL2");
 
 const outFiles = await (async function walk(dir) {
   const { readdir } = await import("node:fs/promises");

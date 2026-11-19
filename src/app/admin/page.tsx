@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { isNativePlatform } from "@/lib/platform";
 
-type Gate = "checking" | "native" | "signed_out" | "mfa" | "denied" | "ready";
+type Gate = "checking" | "native" | "signed_out" | "totp_setup" | "mfa" | "denied" | "ready";
 type Report = { id: string; reporter_id: string; reported_user_id: string | null; target_type: "profile" | "offer" | "message"; target_id: string; reason: string; details: string | null; review_status: string; reviewed_at: string | null; moderation_notes: string | null; created_at: string };
 type Block = { id: string; blocker_id: string; blocked_user_id: string; created_at: string };
 type Metrics = Record<string, unknown>;
@@ -17,6 +17,10 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [mfaFactorId, setMfaFactorId] = useState("");
+  const [totpQrCode, setTotpQrCode] = useState("");
+  const [totpSecret, setTotpSecret] = useState("");
+  const [sessionEmail, setSessionEmail] = useState("");
+  const [sessionUserId, setSessionUserId] = useState("");
   const [error, setError] = useState("");
   const [section, setSection] = useState<"overview" | "reports" | "settings">("overview");
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -51,19 +55,33 @@ export default function AdminPage() {
   const authorize = useCallback(async (accessToken: string) => {
     setToken(accessToken);
     try {
-      if (supabase) {
-        const { data: assurance, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (assuranceError) throw assuranceError;
-        if (assurance.currentLevel !== "aal2" && assurance.nextLevel === "aal2") {
-          const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors(); if (factorsError) throw factorsError;
-          const factor = factors.totp.find((item) => item.status === "verified"); if (!factor) { setGate("denied"); setError("Configura un segundo factor TOTP en esta cuenta administrativa."); return; }
-          setMfaFactorId(factor.id); setGate("mfa"); return;
-        }
-      }
       const response = await fetch("/api/admin?action=session", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
-      if (!response.ok) { setGate("denied"); return; }
+      const result = await response.json().catch(() => ({})) as { authorized?: boolean; totpRequired?: boolean; userId?: string; email?: string | null; error?: string };
+      if (!response.ok) { setError(result.error ?? "La cuenta no está autorizada para el panel."); setGate("denied"); return; }
+      setSessionUserId(result.userId ?? "");
+      setSessionEmail(result.email ?? "");
+      if (result.totpRequired) {
+        if (!supabase) throw new Error("Servicio de autenticación no disponible.");
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError) throw factorsError;
+        const verifiedFactor = factors.totp.find((item) => item.status === "verified");
+        if (verifiedFactor) {
+          setMfaFactorId(verifiedFactor.id);
+          setTotpQrCode("");
+          setTotpSecret("");
+          setGate("mfa");
+          return;
+        }
+        const { data: enrollment, error: enrollmentError } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Job Match Admin" });
+        if (enrollmentError) throw enrollmentError;
+        setMfaFactorId(enrollment.id);
+        setTotpQrCode(enrollment.totp.qr_code);
+        setTotpSecret(enrollment.totp.secret);
+        setGate("totp_setup");
+        return;
+      }
       setGate("ready");
-    } catch { setGate("denied"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo validar la sesión."); setGate("denied"); }
   }, []);
 
   useEffect(() => {
@@ -90,9 +108,24 @@ export default function AdminPage() {
   }
   async function verifyMfa(event: FormEvent) {
     event.preventDefault(); if (!supabase||!mfaFactorId||busy) return; setBusy(true); setError("");
-    try { const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId:mfaFactorId, code:mfaCode.trim() }); if (verifyError) throw verifyError; const { data }=await supabase.auth.getSession(); if(!data.session)throw new Error("La sesión caducó. Vuelve a iniciar sesión."); await authorize(data.session.access_token); }
+    try {
+      const code = mfaCode.trim();
+      if (!/^\d{6}$/.test(code)) throw new Error("Introduce el código de 6 dígitos de tu app autenticadora.");
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+      if (challengeError) throw challengeError;
+      const { error: verifyError } = await supabase.auth.mfa.verify({ factorId: mfaFactorId, challengeId: challenge.id, code });
+      if (verifyError) throw verifyError;
+      setMfaCode("");
+      setTotpQrCode("");
+      setTotpSecret("");
+      const { data }=await supabase.auth.getSession(); if(!data.session)throw new Error("La sesión caducó. Vuelve a iniciar sesión."); await authorize(data.session.access_token);
+    }
     catch(cause){setError(cause instanceof Error?cause.message:"No se pudo verificar el segundo factor.");}
     finally{setBusy(false);}
+  }
+  async function signOut() {
+    await supabase?.auth.signOut();
+    setToken(""); setSessionEmail(""); setSessionUserId(""); setMfaFactorId(""); setMfaCode(""); setTotpQrCode(""); setTotpSecret(""); setError(""); setGate("signed_out");
   }
   async function inspect(report: Report) {
     setSelected(report); setTarget(null); setNotes(report.moderation_notes ?? "");
@@ -118,9 +151,13 @@ export default function AdminPage() {
     finally { setBusy(false); }
   }
 
-  if (gate !== "ready") return <main className="admin-gate"><section className="admin-card"><img src="/branding/jobmatch-logo.png" alt="Job Match"/><span className="eyebrow">PANEL ADMINISTRATIVO</span>{gate === "checking" ? <p>Comprobando acceso…</p> : gate === "native" ? <><h1>Panel solo disponible en web</h1><p>Abre job-match.es/admin desde un navegador de escritorio.</p></> : gate === "signed_out" ? <><h1>Acceso restringido</h1><p>Inicia sesión con una cuenta administrativa autorizada.</p>{error&&<p className="admin-error">{error}</p>}<form onSubmit={(event)=>void signIn(event)}><label>Correo<input type="email" required autoComplete="username" value={email} onChange={(event)=>setEmail(event.target.value)}/></label><label>Contraseña<input type="password" required autoComplete="current-password" value={password} onChange={(event)=>setPassword(event.target.value)}/></label><button disabled={busy}>{busy?"Validando…":"Iniciar sesión"}</button></form></> : gate === "mfa" ? <><h1>Verificación en dos pasos</h1><p>Introduce el código de tu app de autenticación.</p>{error&&<p className="admin-error">{error}</p>}<form onSubmit={(event)=>void verifyMfa(event)}><label>Código TOTP<input inputMode="numeric" autoComplete="one-time-code" minLength={6} maxLength={8} required value={mfaCode} onChange={(event)=>setMfaCode(event.target.value)}/></label><button disabled={busy}>{busy?"Verificando…":"Verificar y continuar"}</button></form></> : <><h1>Acceso denegado</h1><p>La sesión no está autorizada para este panel.</p></>}</section></main>;
+  if (gate !== "ready") return <main className="admin-gate"><section className="admin-card">
+    <img src="/branding/jobmatch-logo.png" alt="Job Match"/><span className="eyebrow">PANEL ADMINISTRATIVO</span>
+    {sessionUserId&&<div className="admin-session-identity"><div><b>{sessionEmail||"Cuenta autenticada"}</b><code>{sessionUserId}</code></div><button type="button" className="admin-signout" onClick={()=>void signOut()}>Cerrar sesión</button></div>}
+    {gate === "checking" ? <p>Comprobando acceso…</p> : gate === "native" ? <><h1>Panel solo disponible en web</h1><p>Abre job-match.es/admin desde un navegador de escritorio.</p></> : gate === "signed_out" ? <><h1>Acceso restringido</h1><p>Inicia sesión con una cuenta administrativa autorizada.</p>{error&&<p className="admin-error" role="alert">{error}</p>}<form onSubmit={(event)=>void signIn(event)}><label>Correo<input type="email" required autoComplete="username" value={email} onChange={(event)=>setEmail(event.target.value)}/></label><label>Contraseña<input type="password" required autoComplete="current-password" value={password} onChange={(event)=>setPassword(event.target.value)}/></label><button disabled={busy}>{busy?"Validando…":"Iniciar sesión"}</button></form></> : gate === "totp_setup" ? <><h1>Activa la verificación en dos pasos</h1><p>Escanea este código con Google Authenticator, Authy u otra app TOTP. Después introduce el código de 6 dígitos.</p>{totpQrCode&&<img className="admin-totp-qr" src={totpQrCode} alt="Código QR para configurar TOTP"/>}{totpSecret&&<p className="admin-totp-secret">Clave manual: <code>{totpSecret}</code></p>}{error&&<p className="admin-error" role="alert">{error}</p>}<form onSubmit={(event)=>void verifyMfa(event)}><label>Código de verificación<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required value={mfaCode} onChange={(event)=>setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}/></label><button disabled={busy}>{busy?"Verificando…":"Verificar y activar TOTP"}</button></form></> : gate === "mfa" ? <><h1>Verificación en dos pasos</h1><p>Introduce el código de 6 dígitos de Google Authenticator, Authy u otra app TOTP.</p>{error&&<p className="admin-error" role="alert">{error}</p>}<form onSubmit={(event)=>void verifyMfa(event)}><label>Código TOTP<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required value={mfaCode} onChange={(event)=>setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}/></label><button disabled={busy}>{busy?"Verificando…":"Verificar y continuar"}</button></form></> : <><h1>Acceso denegado</h1><p>{error||"La cuenta autenticada no está autorizada para este panel."}</p>{sessionUserId&&<button type="button" className="admin-signout" onClick={()=>void signOut()}>Cerrar sesión</button>}</>}
+  </section></main>;
 
-  return <main className="admin-page"><header className="admin-header"><img src="/branding/jobmatch-logo.png" alt="Job Match"/><div><span className="eyebrow">OPERACIONES</span><h1>Administración</h1></div><button className="admin-signout" onClick={async()=>{await supabase?.auth.signOut();setGate("signed_out");}}>Cerrar sesión</button></header>
+  return <main className="admin-page"><header className="admin-header"><img src="/branding/jobmatch-logo.png" alt="Job Match"/><div><span className="eyebrow">OPERACIONES</span><h1>Administración</h1><div className="admin-session-identity"><b>{sessionEmail}</b><code>{sessionUserId}</code></div></div><button className="admin-signout" onClick={()=>void signOut()}>Cerrar sesión</button></header>
     <nav className="admin-nav">{(["overview","reports","settings"] as const).map((item)=><button className={section===item?"active":""} key={item} onClick={()=>setSection(item)}>{item==="overview"?"Resumen":item==="reports"?"Moderación":"Ajustes"}</button>)}</nav>
     {error&&<p className="admin-notice" role="status">{error}</p>}
     {section==="overview"&&<section><div className="admin-section-title"><div><span className="eyebrow">ÚLTIMOS 30 DÍAS Y ESTADO ACTUAL</span><h2>Actividad de Job Match</h2></div><div className="admin-range"><label>Desde<input type="date" value={metricFrom} onChange={(event)=>setMetricFrom(event.target.value)}/></label><label>Hasta<input type="date" value={metricTo} onChange={(event)=>setMetricTo(event.target.value)}/></label><button onClick={()=>void loadMetrics()}>Aplicar rango</button></div></div>{metrics?<><div className="admin-metric-grid">{[["Cuentas nuevas",metrics.new_accounts],["Fichas activas",metrics.active_worker_profiles],["Ofertas activas",metrics.active_offers],["Swipes",metrics.swipes],["Matches",metrics.matches],["Conversaciones",metrics.conversations],["Denuncias pendientes",metrics.reports_pending],["Denuncias resueltas",metrics.reports_resolved],["Pro activas",metrics.pro_subscriptions],["Compras Play",metrics.google_play_purchases]].map(([label,value])=><article className="admin-metric" key={String(label)}><span>{String(label)}</span><strong>{String(value??0)}</strong></article>)}</div><article className="admin-card"><h3>Escaneos de /app por origen y plataforma</h3>{Array.isArray(metrics.qr_scans)&&metrics.qr_scans.length? <div className="admin-table-wrap"><table><thead><tr><th>Origen</th><th>Plataforma</th><th>Escaneos</th></tr></thead><tbody>{(metrics.qr_scans as Array<Record<string,unknown>>).map((row,index)=><tr key={index}><td>{String(row.source)}</td><td>{String(row.platform)}</td><td>{String(row.count)}</td></tr>)}</tbody></table></div>:<p>Sin escaneos en el rango.</p>}</article><p className="admin-footnote">Las cuentas son usuarios autenticados; swipes y matches son eventos del rango. Los escaneos son eventos anónimos y no identifican dispositivos.</p></>:<p>Cargando métricas…</p>}</section>}
