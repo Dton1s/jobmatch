@@ -60,7 +60,7 @@ export default function AdminPage() {
           setMfaFactorId(factor.id); setGate("mfa"); return;
         }
       }
-      const response = await fetch("/api/admin/session", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+      const response = await fetch("/api/admin?action=session", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
       if (!response.ok) { setGate("denied"); return; }
       setGate("ready");
     } catch { setGate("denied"); }
@@ -72,14 +72,14 @@ export default function AdminPage() {
     void supabase.auth.getSession().then(({ data }) => data.session ? authorize(data.session.access_token) : setGate("signed_out"));
   }, [authorize]);
 
-  const loadMetrics = useCallback(async () => { const params=new URLSearchParams({from:new Date(`${metricFrom}T00:00:00`).toISOString(),to:new Date(`${metricTo}T23:59:59.999`).toISOString()});setMetrics(await api(`/api/admin/metrics?${params}`)); }, [api,metricFrom,metricTo]);
+  const loadMetrics = useCallback(async () => { const params=new URLSearchParams({from:new Date(`${metricFrom}T00:00:00`).toISOString(),to:new Date(`${metricTo}T23:59:59.999`).toISOString()});setMetrics(await api(`/api/admin?action=metrics&${params}`)); }, [api,metricFrom,metricTo]);
   const loadReports = useCallback(async () => {
-    const params = new URLSearchParams({ page: String(page), limit: "20" });
+    const params = new URLSearchParams({ action: "reports", page: String(page), limit: "20" });
     if (filterStatus) params.set("status", filterStatus); if (filterType) params.set("type", filterType); if (filterReason) params.set("reason", filterReason); if(reportFrom)params.set("from",new Date(`${reportFrom}T00:00:00`).toISOString());if(reportTo)params.set("to",new Date(`${reportTo}T23:59:59.999`).toISOString());
-    const result = await api(`/api/admin/reports?${params}`); setReports(result.reports); setReportCount(result.count);
+    const result = await api(`/api/admin?${params}`); setReports(result.reports); setReportCount(result.count);
   }, [api, page, filterStatus, filterType, filterReason, reportFrom, reportTo]);
-  const loadBlocks = useCallback(async () => { const params=new URLSearchParams({page:String(page),limit:"20"}); if(blockUserFilter.trim())params.set("user",blockUserFilter.trim()); const result=await api(`/api/admin/blocks?${params}`);setBlocks(result.blocks);setReportCount(result.count); },[api,page,blockUserFilter]);
-  const loadSettings = useCallback(async () => { const result = await api("/api/admin/settings"); setSettings(result.settings.map((item: {key:string;value:Record<string,unknown>})=>({key:item.key,value:item.value}))); }, [api]);
+  const loadBlocks = useCallback(async () => { const params=new URLSearchParams({action:"blocks",page:String(page),limit:"20"}); if(blockUserFilter.trim())params.set("user",blockUserFilter.trim()); const result=await api(`/api/admin?${params}`);setBlocks(result.blocks);setReportCount(result.count); },[api,page,blockUserFilter]);
+  const loadSettings = useCallback(async () => { const result = await api("/api/admin?action=settings"); setSettings(result.settings.map((item: {key:string;value:Record<string,unknown>})=>({key:item.key,value:item.value}))); }, [api]);
   useEffect(() => { if (gate !== "ready") return; setError(""); void (section === "overview" ? loadMetrics() : section === "reports" ? moderationTab === "reports" ? loadReports() : loadBlocks() : loadSettings()).catch((cause) => setError(cause instanceof Error ? cause.message : "Error de carga.")); }, [gate, section, moderationTab, loadMetrics, loadReports, loadBlocks, loadSettings]);
 
   async function signIn(event: FormEvent) {
@@ -96,24 +96,24 @@ export default function AdminPage() {
   }
   async function inspect(report: Report) {
     setSelected(report); setTarget(null); setNotes(report.moderation_notes ?? "");
-    try { const result = await api(`/api/admin/target?type=${report.target_type}&id=${encodeURIComponent(report.target_id)}`); setTarget(result.target); }
+    try { const result = await api(`/api/admin?action=target&type=${report.target_type}&id=${encodeURIComponent(report.target_id)}`); setTarget(result.target); }
     catch { setTarget({ unavailable: "El contenido ya no está disponible." }); }
   }
   async function updateReport(status: string) {
     if (!selected) return; setBusy(true);
-    try { await api("/api/admin/reports", { method: "PATCH", body: JSON.stringify({ id: selected.id, review_status: status, moderation_notes: notes }) }); setSelected(null); await loadReports(); }
+    try { await api("/api/admin?action=reports", { method: "PATCH", body: JSON.stringify({ id: selected.id, review_status: status, moderation_notes: notes }) }); setSelected(null); await loadReports(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se guardó el cambio."); }
     finally { setBusy(false); }
   }
   async function action(actionName: string, targetId: string, label: string) {
     if (!window.confirm(`${label}. ¿Confirmas esta acción administrativa?`)) return;
     setBusy(true);
-    try { await api("/api/admin/action", { method: "POST", body: JSON.stringify({ action: actionName, target_id: targetId, confirm: true }) }); setError("Acción completada."); if (section === "reports") await loadReports(); }
+    try { await api("/api/admin?action=action", { method: "POST", body: JSON.stringify({ action: actionName, target_id: targetId, confirm: true }) }); setError("Acción completada."); if (section === "reports") await loadReports(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo aplicar la acción."); }
     finally { setBusy(false); }
   }
   async function saveSetting(key: string, value: Record<string, unknown>) {
-    setBusy(true); try { await api("/api/admin/settings", { method: "PUT", body: JSON.stringify({ key, value }) }); await loadSettings(); setError("Ajuste guardado."); }
+    setBusy(true); try { await api("/api/admin?action=settings", { method: "PUT", body: JSON.stringify({ key, value }) }); await loadSettings(); setError("Ajuste guardado."); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar."); }
     finally { setBusy(false); }
   }

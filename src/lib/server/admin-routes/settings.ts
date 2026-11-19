@@ -1,4 +1,4 @@
-import { audit, errorResponse, isAdminError, parseBody, requireAdmin } from "../lib/admin.js";
+import { audit, errorResponse, isAdminError, parseBody, requireAdmin } from "../admin-auth.js";
 const keys = new Set(["maintenance_notice", "info_banner", "feature_flags"]);
 function validateValue(key: string, value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;

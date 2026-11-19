@@ -1,4 +1,4 @@
-import { errorResponse, isAdminError, requireAdmin } from "../lib/admin.js";
+import { errorResponse, isAdminError, requireAdmin } from "../admin-auth.js";
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "GET") return Response.json({ error: "Método no permitido." }, { status: 405 });
   const auth = await requireAdmin(request); if (isAdminError(auth)) return auth.response;

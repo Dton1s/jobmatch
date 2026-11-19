@@ -1,4 +1,4 @@
-import { audit, errorResponse, isAdminError, parseBody, requireAdmin } from "../lib/admin.js";
+import { audit, errorResponse, isAdminError, parseBody, requireAdmin } from "../admin-auth.js";
 const statuses = new Set(["pending", "reviewing", "resolved", "dismissed"]);
 const types = new Set(["profile", "offer", "message"]);
 export default async function handler(request: Request): Promise<Response> {
