@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },
+    { "source": "/admin", "destination": "/admin.html" },
     { "source": "/privacidad", "destination": "/privacidad.html" },
     { "source": "/terminos", "destination": "/terminos.html" },
     { "source": "/aviso-legal", "destination": "/aviso-legal.html" },

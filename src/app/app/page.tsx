@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Check, ExternalLink, MonitorDown, Share2, Smartphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-type Platform = "checking" | "android" | "ios" | "desktop";
+type Platform = "checking" | "android" | "ios" | "web";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=es.nebuladigitalstudio.jobmatch";
 
@@ -16,17 +16,18 @@ export default function AppLandingPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const source = (params.get("src") || "direct").slice(0, 120);
+    const requestedSource = params.get("src") || "direct";
+    const source = /^[a-zA-Z0-9_-]{1,120}$/.test(requestedSource) ? requestedSource : "direct";
     const userAgent = navigator.userAgent.slice(0, 500);
     const isAndroid = /android/i.test(userAgent);
     const isIOS = /iPad|iPhone|iPod/i.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const detectedPlatform: Exclude<Platform, "checking"> = isAndroid ? "android" : isIOS ? "ios" : "desktop";
+    const detectedPlatform: Exclude<Platform, "checking"> = isAndroid ? "android" : isIOS ? "ios" : "web";
 
     setPlatform(detectedPlatform);
     setWebHref(`/${window.location.search}${window.location.hash}`);
 
     if (supabase) {
-      void Promise.resolve(supabase.from("jobmatch_qr_scans").insert({ source, platform: detectedPlatform, user_agent: userAgent })).then(({ error }) => {
+      void Promise.resolve(supabase.from("jobmatch_qr_scans").insert({ source, platform: detectedPlatform })).then(({ error }) => {
         if (error && process.env.NODE_ENV !== "production") console.info("No se pudo registrar la visita a /app.", error.message);
       }).catch(() => undefined);
     }

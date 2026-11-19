@@ -59,6 +59,9 @@ export default function HomePage() {
   const authUserId = useRef<string|null>(null);
   const deckLoaded = useRef(false);
   const [notice,setNotice] = useState("");
+  const [reviewEmail,setReviewEmail] = useState("");
+  const [reviewPassword,setReviewPassword] = useState("");
+  const [reviewLoginBusy,setReviewLoginBusy] = useState(false);
   const [successToast,setSuccessToast] = useState("");
   const successToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filtersOpen,setFiltersOpen] = useState(false);
@@ -350,6 +353,16 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
     const {error}=await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${window.location.origin}/`}});
     if(error)setNotice(error.message);
   }
+  async function signInWithPassword(event:React.FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!supabase||reviewLoginBusy)return;
+    setReviewLoginBusy(true);setNotice("");
+    try{
+      const {error}=await supabase.auth.signInWithPassword({email:reviewEmail.trim(),password:reviewPassword});
+      if(error)throw error;
+    }catch(cause){setNotice(cause instanceof Error?cause.message:"No se pudo iniciar sesión.");}
+    finally{setReviewLoginBusy(false);}
+  }
   async function chooseRole(role:Role){
     if(!supabase||!user)return;
     const {error}=await supabase.from("jobmatch_profiles").upsert({id:user.id,role,enabled_roles:[role],display_name:user.email?.split("@")[0]??"",onboarding_complete:false},{onConflict:"id"});
@@ -464,7 +477,7 @@ function withTimeout<T>(request:PromiseLike<T>,milliseconds:number,message:strin
 
   if(!supabase)return <main className="splash"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="Job Match"/><h1>Conecta Supabase</h1><p>Copia <code>.env.example</code> a <code>.env.local</code> y añade las variables públicas del proyecto.</p></main>;
   if(booting)return <main className="splash"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="Job Match"/><div className="loader"/><p>Preparando Job Match…</p></main>;
-  if(!user)return <main className="auth-screen"><section className="auth-card"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="Job Match"/></a><div className="auth-visual"><img src="/branding/jobmatch-banner.png" alt="Job Match · Haz match con el empleo"/></div><span className="eyebrow">EMPLEO QUE EMPIEZA CON UN MATCH</span><h1>El próximo match<br/>puede ser <em>aquí.</em></h1><p>Conexiones laborales de verdad, con el radio que tú elijas. Un gesto para descubrir, otro para conectar.</p>{notice&&<div className="form-error" role="alert">{notice}</div>}<button className="google-button" onClick={()=>void signIn()}><GoogleMark/> Continuar con Google</button><small className="auth-terms">Tu perfil profesional solo se comparte con usuarios registrados.</small><nav className="auth-legal-links" aria-label="Información legal"><Link href="/privacidad">Privacidad</Link><Link href="/terminos">Términos</Link><Link href="/aviso-legal">Aviso legal</Link><Link href="/eliminar-cuenta">Eliminar cuenta</Link></nav></section></main>;
+  if(!user)return <main className="auth-screen"><section className="auth-card"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="Job Match"/></a><div className="auth-visual"><img src="/branding/jobmatch-banner.png" alt="Job Match · Haz match con el empleo"/></div><span className="eyebrow">EMPLEO QUE EMPIEZA CON UN MATCH</span><h1>El próximo match<br/>puede ser <em>aquí.</em></h1><p>Conexiones laborales de verdad, con el radio que tú elijas. Un gesto para descubrir, otro para conectar.</p>{notice&&<div className="form-error" role="alert">{notice}</div>}<button className="google-button" onClick={()=>void signIn()}><GoogleMark/> Continuar con Google</button><details className="review-login"><summary>¿Tienes cuenta de acceso o revisión? Entrar con correo y contraseña</summary><form onSubmit={(event)=>void signInWithPassword(event)}><label>Correo electrónico<input type="email" autoComplete="username" required value={reviewEmail} onChange={(event)=>setReviewEmail(event.target.value)}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={reviewPassword} onChange={(event)=>setReviewPassword(event.target.value)}/></label><button className="primary-button" disabled={reviewLoginBusy}>{reviewLoginBusy?"Entrando…":"Entrar"}</button></form></details><small className="auth-terms">Tu perfil profesional solo se comparte con usuarios registrados.</small><nav className="auth-legal-links" aria-label="Información legal"><Link href="/privacidad">Privacidad</Link><Link href="/terminos">Términos</Link><Link href="/aviso-legal">Aviso legal</Link><Link href="/eliminar-cuenta">Eliminar cuenta</Link></nav></section></main>;
   if(!profile?.role)return <main className="role-screen"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="Job Match"/></a><div className="role-copy"><span className="eyebrow">EMPIEZA POR TU OBJETIVO</span><h1>¿Qué te trae<br/>por aquí, <em>{user.email?.split("@")[0]}?</em></h1><p>Elige tu modo principal. Si lo necesitas, podrás activar el otro más adelante desde Perfil y ajustes.</p></div><div className="role-cards"><button onClick={()=>void chooseRole("worker")} className="role-card worker-role"><span className="role-icon"><UserRound/></span><span className="eyebrow">TRABAJADOR</span><strong>Busco trabajo</strong><p>Descubre ofertas con salario claro y ajusta la distancia.</p><span className="role-arrow">↗</span></button><button onClick={()=>void chooseRole("company")} className="role-card company-role"><span className="role-icon"><BriefcaseBusiness/></span><span className="eyebrow">EMPRESA</span><strong>Soy empresa / Busco personal</strong><p>Publica vacantes y encuentra talento.</p><span className="role-arrow">↗</span></button></div>{notice&&<p className="form-error">{notice}</p>}</main>;
   const needsSetup=!profile.onboarding_complete||(profile.role==="worker"&&!workerCard);
   if(editing||needsSetup)return <main className="editor-screen"><a className="brand-lockup"><img className="brand-logo" src="/branding/jobmatch-logo.png" alt="Job Match"/></a><CardEditor key={`${profile.role}-${editingOfferId||"new"}`} profile={profile} existingWorker={workerCard} existingOffer={editingOffer} offers={offers} activeOfferId={selectedOfferId} onEditOffer={setEditingOfferId} onChooseOffer={chooseOfferForDeck} onToggleOffer={(offer)=>void toggleOffer(offer)} onCancel={()=>setEditing(false)} onUpgrade={()=>{setEditing(false);setSettingsOpen(true);}} onPurchaseSuccess={()=>{void loadAccount(profile.id);showSuccessToast("La oferta ya está destacada durante 7 días.");}} onSaved={async(closeAfterSave=true)=>{await loadAccount(profile.id);if(closeAfterSave){setEditing(false);showSuccessToast(profile.role==="worker"?"Ficha guardada correctamente":"Oferta guardada correctamente");}}}/></main>;

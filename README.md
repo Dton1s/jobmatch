@@ -2,7 +2,7 @@
 
 Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofertas con salario visible, intereses mutuos y chat, con filtros de distancia que pueden superar los 50 km. La interfaz es mobile-first y se exporta como sitio estático de Next.js; Capacitor puede cargar esa exportación como aplicación Android.
 
-> **Estado revisado el 18 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario. Android tiene configurado `versionName 1.0.9` y `versionCode 11`.
+> **Estado revisado el 19 de noviembre de 2026.** Nombre visible de marca: **Job Match**; nombre compacto **JobMatch** se conserva en identificadores técnicos y en el logotipo actual. El dominio canónico `https://job-match.es` está conectado a Vercel, resuelve con SSL y sirve producción, según la confirmación del propietario. Android tiene configurado `versionName 1.1.0` y `versionCode 12`.
 
 ## Índice
 
@@ -36,7 +36,7 @@ Job Match conecta a trabajadores y empresas mediante fichas profesionales, ofert
 - PWA instalada: manifest con nombre e iconos de JobMatch, `display: standalone` y banner de instalación para Chromium en PC/Android, con instrucciones manuales para Safari en iOS. La app no anuncia modo sin conexión ni registra un service worker.
 - Identidad visual: logo, banner, icono maestro de la app y favicons/iconos PWA están incorporados al repositorio. El logotipo gráfico conserva el wordmark compacto `jobmatch`, mientras la interfaz y la ficha de tienda utilizan **Job Match**.
 - Correo corporativo: el propietario confirma que Nominalia tiene creados y activos `administracion@job-match.es`, `privacidad@job-match.es` y `soporte@job-match.es`. Privacidad y Soporte son los contactos públicos; Administración queda para gestiones internas hasta definir flujos específicos.
-- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. Para Android, el AAB 1.0.9 firmado se generó y verificó localmente; la subida al track y las pruebas en Play quedan pendientes.
+- Estado de infraestructura web: Vercel, dominio canónico y SSL, correo Nominalia, Stripe Live/webhook y SEO están completados según la confirmación operativa del propietario. Android prepara la fuente 1.1.0 / versionCode 12; el AAB firmado de esta revisión todavía no se ha generado, y la subida al track y las pruebas en Play quedan pendientes.
 
 ## Estado de lanzamiento
 
@@ -44,7 +44,7 @@ La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado
 
 > **Infraestructura web completada al 100% según confirmación operativa del propietario:** Vercel, dominio canónico con SSL, buzones de Nominalia, Stripe Live con webhook activo y SEO (rastreo y Search Console). Android tiene un AAB firmado listo para subir; el siguiente hito es probar OAuth, Billing y actualizaciones desde el track de Google Play.
 
-| Área | Estado a 18-11-2026 |
+| Área | Estado a 19-11-2026 |
 | --- | --- |
 | Aplicación web y flujos principales | Desplegados en Vercel; los flujos autenticados principales se revisaron en sesión. Mantener pruebas de aceptación de extremo a extremo antes de escalar el registro público. |
 | PWA e identidad visual | Manifest, instalación guiada, logotipo, banner «Haz match con el empleo», icono y favicon incorporados. |
@@ -53,7 +53,7 @@ La aplicación web está desplegada en Vercel. `job-match.es` aparece verificado
 | Stripe | Infraestructura configurada en modo Live; webhook de producción activo según confirmación del propietario. Checkout controlado, reembolsos y facturación siguen siendo validaciones operativas recomendadas. |
 | Nombre, dominio y correo | Nombre **Job Match**, `https://job-match.es`, SSL y los tres buzones de Nominalia operativos según confirmación del propietario. |
 | SEO | `public/robots.txt` y `public/sitemap.xml` están desplegados y verificados con HTTP 200. El sitemap lista las cinco páginas públicas principales; la propiedad de Google Search Console está verificada. |
-| Android / Google Play | Configuración fuente `versionName 1.0.9` / `versionCode 11`. AAB release firmado generado localmente y verificado; queda pendiente subirlo al track de prueba. Google Play Billing e In-App Updates están implementados; las compras reales aún requieren validación dentro del track. |
+| Android / Google Play | Configuración fuente `versionName 1.1.0` / `versionCode 12`. AAB 1.1.0 todavía pendiente de generación/verificación; después se subirá al track de prueba. Google Play Billing e In-App Updates están implementados; las compras reales aún requieren validación dentro del track. |
 
 La producción web utiliza la instancia Supabase compartida existente. Los objetos de base de datos propios de Job Match se aíslan mediante el prefijo estricto `jobmatch_` en tablas, funciones y políticas; esta separación de esquema permite operar la aplicación actual sin presentarla como un proyecto Supabase exclusivo. Una futura migración a una instancia dedicada se planificará con backup, validación y despliegue controlado.
 
@@ -261,7 +261,7 @@ npm run build
 npx cap add android
 ```
 
-El manifiesto `android/app/src/main/AndroidManifest.xml` declara el intent filter OAuth `es.nebuladigitalstudio.jobmatch://auth/callback`. La versión configurada es `versionCode 11` / `versionName 1.0.9`. El AAB release firmado se generó y verificó localmente el 18 de noviembre de 2026; falta subirlo al track de prueba. El plugin de compras integra Google Play Billing y el de actualizaciones usa In-App Updates. La migración `upgrade_message_reports.sql` está aplicada según el propietario; antes de publicar, valida productos, compras y actualización dentro del track.
+El manifiesto `android/app/src/main/AndroidManifest.xml` declara el intent filter OAuth `es.nebuladigitalstudio.jobmatch://auth/callback`. La versión configurada es `versionCode 12` / `versionName 1.1.0`. El AAB anterior se generó el 18 de noviembre; esta revisión incrementa el código a 12 y requiere generar/verificar el nuevo paquete antes de Play. El plugin de compras integra Google Play Billing y el de actualizaciones usa In-App Updates. La migración `upgrade_message_reports.sql` está aplicada según el propietario; antes de publicar, valida productos, compras y actualización dentro del track.
 
 Sincronización y apertura posteriores:
 
@@ -377,3 +377,22 @@ Una instancia propia separa el riesgo operativo de otros productos y facilita de
 - **Storage devuelve error RLS al subir CV:** comprueba que `supabase/private_cvs_storage.sql` se ejecutó, que el bucket es privado y que el path empieza por `<user-id>/cv-...pdf`. Para imágenes/audio, comprueba `jobmatch-media` y sus políticas de propietario.
 - **No aparece Realtime:** habilita `jobmatch_matches` y `jobmatch_messages` en la publicación de Realtime del proyecto correcto.
 - **No funciona el dominio nuevo:** primero valida DNS y TLS en Vercel. Un alias configurado no garantiza que el dominio esté registrado o que ya resuelva públicamente.
+
+
+## Dashboard administrativo `/admin` (v1.1.0)
+
+La ruta estática `/admin` es solo una interfaz; cada solicitud de datos pasa por funciones serverless en `api/admin/`. El servidor valida el JWT de Supabase Auth y exige que el UUID autenticado aparezca en `JOBMATCH_ADMIN_USER_IDS`. Si la variable falta, está vacía o el token no es válido, el servidor deniega el acceso. La vista también se bloquea dentro de Capacitor. El cliente exportado no contiene `SUPABASE_SERVICE_ROLE_KEY`; esta clave solo se lee en código server-side de `api/`. La ruta publica `noindex,nofollow`.
+
+Funciones implementadas: resumen agregado con rango por defecto de 30 días; lista paginada de denuncias con filtros por estado, tipo y motivo; lista paginada de bloqueos; inspección explícita del objetivo denunciado; actualización de estado/notas internas; desactivación confirmada de ficha/oferta; suspensión/restauración confirmada de usuario; y avisos/banners sencillos validados sin HTML/JS. Las consultas tienen máximo de 50 filas por página y el contenido sensible solo se solicita al abrir una denuncia concreta. Los mensajes ocultos localmente y el bloqueo mutuo existente no se alteran. Las métricas no equivalen a analítica de tráfico de Vercel: solo resumen cuentas/eventos de Job Match y escaneos anónimos de `/app`.
+
+### Activación manual y seguridad
+
+1. En Supabase, abre SQL Editor y ejecuta **una vez** `supabase/jobmatch_admin_dashboard.sql` después de revisar el proyecto y confirmar que contiene el esquema esperado `jobmatch_*`. No modifica objetos ajenos; crea ajustes/auditoría, actualiza la tabla de QR para eliminar `user_agent` y añade funciones agregadas. La migración no se ejecuta desde el build ni desde este repositorio.
+2. Obtén el UUID de cada administrador desde **Supabase → Authentication → Users** (columna UID) o, en SQL Editor, con `select id from auth.users where email = 'tu-correo-admin';`. Configura en Vercel Production `JOBMATCH_ADMIN_USER_IDS` como una lista separada por comas de UUID. No pongas correos ni tokens en esta variable. No configures la lista hasta haber asignado MFA y acceso seguro a las cuentas.
+3. Confirma que `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` están disponibles en funciones de Vercel. La service role no debe llevar prefijo `NEXT_PUBLIC_`, ni aparecer en archivos entregados al navegador. Vuelve a desplegar tras cambiar variables.
+4. Activa MFA/TOTP para cada cuenta administrativa en Supabase Auth, guarda códigos de recuperación de forma segura y limita el número de UUIDs. El panel usa la sesión de Supabase existente; la política de acceso se aplica siempre en servidor.
+5. Prueba primero con una cuenta no autorizada y verifica HTTP 403; con variable ausente, verifica denegación; con admin autorizado, verifica lectura, actualización y registro de auditoría.
+
+`jobmatch_admin_audit_logs` es append-only para las funciones (`service_role` solo recibe `SELECT`/`INSERT`) y no tiene políticas para clientes. Las notas deben ser breves y no incluir tokens, CV, coordenadas exactas ni copias de mensajes. Las métricas y la auditoría no tienen borrado automático en esta migración: antes del lanzamiento define un periodo de conservación y un proceso administrativo de retención conforme a la política de privacidad. El SQL debe aplicarse antes de configurar administradores; hasta entonces los endpoints que consultan las nuevas tablas fallarán si se autorizan usuarios manualmente.
+
+La medición QR almacena únicamente `source`, la plataforma general (`android`, `ios`, `web`) y fecha técnica. La migración elimina los user-agent históricos y convierte el valor antiguo `desktop` a `web`; no registra IP ni un identificador de dispositivo en esta tabla.
