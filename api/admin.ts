@@ -10,7 +10,8 @@ const handlers: Record<string, (request: Request) => Promise<Response>> = { sess
 
 // One Vercel Function serves every admin operation via /api/admin?action=...
 export default async function handler(request: Request): Promise<Response> {
-  const actionName = new URL(request.url).searchParams.get("action") ?? "";
+  // Vercel may provide a relative URL (and may append its temporary share query).
+  const actionName = new URL(request.url, "http://localhost").searchParams.get("action") ?? "";
   const route = handlers[actionName];
   if (!route) return Response.json({ error: "Ruta administrativa no encontrada." }, { status: 404 });
   return route(request);
