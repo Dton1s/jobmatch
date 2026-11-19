@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-export default async function handler(request: Request): Promise<Response> {
+import { sendWebResponse, toWebRequest, type VercelNodeRequest, type VercelNodeResponse } from "../src/lib/server/vercel-http.js";
+async function handle(request: Request): Promise<Response> {
   if (request.method !== "GET") return Response.json({ error: "Método no permitido." }, { status: 405 });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL; const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !service) return Response.json({ settings: {} }, { headers: { "Cache-Control": "public, max-age=60" } });
@@ -16,4 +17,7 @@ export default async function handler(request: Request): Promise<Response> {
   } catch {
     return Response.json({ settings: {} }, { headers: { "Cache-Control": "public, max-age=30" } });
   }
+}
+export default async function handler(request: VercelNodeRequest, response: VercelNodeResponse): Promise<void> {
+  await sendWebResponse(response, await handle(toWebRequest(request)));
 }
