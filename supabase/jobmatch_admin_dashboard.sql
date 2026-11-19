@@ -81,7 +81,7 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     'active_offers', (select count(*) from public.jobmatch_job_offers o where o.is_active and o.expires_at > now()),
     'swipes', (select count(*) from public.jobmatch_swipes s where s.created_at >= p_from and s.created_at < p_to),
     'matches', (select count(*) from public.jobmatch_matches m where m.created_at >= p_from and m.created_at < p_to),
-    'conversations', (select count(*) from public.jobmatch_matches m where m.created_at >= p_from and m.created_at < p_to),
+    'chats_with_messages', (select count(distinct msg.match_id) from public.jobmatch_messages msg where msg.created_at >= p_from and msg.created_at < p_to),
     'reports_pending', (select count(*) from public.jobmatch_user_reports r where r.review_status in ('pending','reviewing')),
     'reports_resolved', (select count(*) from public.jobmatch_user_reports r where r.review_status in ('resolved','dismissed') and r.reviewed_at >= p_from and r.reviewed_at < p_to),
     'pro_subscriptions', (select count(*) from public.jobmatch_subscriptions s where s.status in ('active','trialing') and s.current_period_end > now()),

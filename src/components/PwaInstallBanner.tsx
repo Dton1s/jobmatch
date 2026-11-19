@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Plus, Share2, Smartphone, X } from "lucide-react";
 
 type InstallPromptEvent = Event & {
@@ -23,6 +24,7 @@ function isStandalone() {
 }
 
 export function PwaInstallBanner() {
+  const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [iosGuideOpen, setIosGuideOpen] = useState(false);
@@ -87,7 +89,7 @@ export function PwaInstallBanner() {
     }
   }
 
-  if (!ready || !visible) return null;
+  if (pathname === "/admin" || pathname.startsWith("/admin/") || !ready || !visible) return null;
 
   return (
     <>
